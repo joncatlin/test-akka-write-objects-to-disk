@@ -286,7 +286,10 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+<<<<<<< HEAD
 
 # Jon catlin
 # ignore bin files as that ius what the code generates as part of the testing
 *.bin
+=======
+>>>>>>> bf349ce11e601e85f4f2268d547bf69b0caaca43

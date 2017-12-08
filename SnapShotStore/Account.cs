@@ -1,17 +1,19 @@
-﻿using System;
+﻿using Akka.Routing;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace SnapShotStore
 {
-    [Serializable]
+    //[Serializable]
     public class Account
     {
-        public Account()
+        public Account(string accountID)
         {
+            AccountID = accountID;
         }
 
-        public string AccountID { get; set; }
+        public string AccountID { get; private set; }
         public string CompanyIDCustomerID { get; set; }
         public string AccountTypeID { get; set; }
         public string PrimaryAccountCodeID { get; set; }
@@ -39,6 +41,7 @@ namespace SnapShotStore
         public string RandomText7 { get; set; }
         public string RandomText8 { get; set; }
         public string RandomText9 { get; set; }
+
     }
 
 

@@ -8,15 +8,67 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Serialization;
 using System.Diagnostics;
 using System.ComponentModel;
+using Akka.Actor;
+using Akka.Configuration;
+using Akka.Routing;
 
 namespace SnapShotStore
 {
 
     class Program
     {
+        private const int NUM_SNAPSHOT_ACTORS = 10;
+
         static void Main(string[] args)
         {
-            string dir = @"C:\Users\jcatlin.CSC\Documents\Development\VisualStudioWorkspace\SnapShotStore";
+            var config = ConfigurationFactory.ParseString("log-config-on-start = on \n" +
+                "stdout -loglevel = INFO \n" +
+                "loglevel=INFO, " +
+                "loggers=[\"Akka.Logger.Serilog.SerilogLogger, Akka.Logger.Serilog\"]}"
+                );
+            string dir = @"C:\Users\jcatlin.CSC\Documents\Development\temp";
+
+            // Create the container for all the actors
+            var actorSystem = ActorSystem.Create("csl-arch-poc", config);
+
+
+            // Create a number of actors that will be part of a consistent hash routing group
+            IActorRef[] refs = new IActorRef[NUM_SNAPSHOT_ACTORS];
+            string[] names = new string[NUM_SNAPSHOT_ACTORS];
+            for (int i = 0; i < NUM_SNAPSHOT_ACTORS; i++)
+            {
+                names[i] = "snapshotActor-" + i;
+                Props snapshotActorProps = Props.Create(() => new SnapshotActor(i, dir));
+                refs[i] = actorSystem.ActorOf(snapshotActorProps, names[i]);
+            }
+
+            // Create the consistent has routing group
+            var router = actorSystem.ActorOf(Props.Empty.WithRouter(new ConsistentHashingGroup(names)), "snapshot-group");
+
+            // Create some state and tell one of the actors to save it
+            Account acc = new Account("1234");
+
+            router.Tell(new SaveSnapshot(acc.AccountID, acc));
+
+            // Wait until actor system terminated
+            actorSystem.WhenTerminated.Wait();
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+        static void PreviousMain(string[] args)
+        {
+            string dir = @"C:\Users\jcatlin.CSC\Documents\Development\temp";
 
             // GOAL determine what the likely time it would take to write 120K accounts to a file system and have gluster replicate them.
             // Construct a ConcurrentQueue.
@@ -167,9 +219,8 @@ namespace SnapShotStore
 
                     //                System.Console.WriteLine(line);
                     string[] tokens = line.Split(',');
-                    Account account = new Account();
+                    Account account = new Account(tokens[0]);
 
-                    account.AccountID = tokens[0];
                     account.CompanyIDCustomerID = tokens[1];
                     account.AccountTypeID = tokens[2];
                     account.PrimaryAccountCodeID = tokens[3];
@@ -311,7 +362,6 @@ namespace SnapShotStore
         static void writeFile4(string filename, ConcurrentQueue<Account> queue)
         {
             Account account = null;
-            ObjectMarker om = new ObjectMarker();
             int counter = 0;
             const int INITIAL_SIZE = 100000;
             Dictionary<string, long> objectLocation = new Dictionary<string, long>(INITIAL_SIZE);
