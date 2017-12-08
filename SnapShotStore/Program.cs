@@ -4,8 +4,6 @@ using System.IO;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Runtime.Serialization;
 using System.Diagnostics;
 using System.ComponentModel;
 using Akka.Actor;
@@ -17,45 +15,62 @@ namespace SnapShotStore
 
     class Program
     {
-        private const int NUM_SNAPSHOT_ACTORS = 10;
+        private const int NUM_SNAPSHOT_ACTORS = 4;
 
         static void Main(string[] args)
         {
-            var config = ConfigurationFactory.ParseString("log-config-on-start = on \n" +
-                "stdout -loglevel = INFO \n" +
-                "loglevel=INFO, " +
-                "loggers=[\"Akka.Logger.Serilog.SerilogLogger, Akka.Logger.Serilog\"]}"
-                );
-            string dir = @"C:\Users\jcatlin.CSC\Documents\Development\temp";
+
+            // Get the configuration of the akka system
+            var config = ConfigurationFactory.ParseString(GetConfiguration());
 
             // Create the container for all the actors
             var actorSystem = ActorSystem.Create("csl-arch-poc", config);
 
 
-            // Create a number of actors that will be part of a consistent hash routing group
-            IActorRef[] refs = new IActorRef[NUM_SNAPSHOT_ACTORS];
-            string[] names = new string[NUM_SNAPSHOT_ACTORS];
-            for (int i = 0; i < NUM_SNAPSHOT_ACTORS; i++)
-            {
-                names[i] = "snapshotActor-" + i;
-                Props snapshotActorProps = Props.Create(() => new SnapshotActor(i, dir));
-                refs[i] = actorSystem.ActorOf(snapshotActorProps, names[i]);
-            }
-
-            // Create the consistent has routing group
-            var router = actorSystem.ActorOf(Props.Empty.WithRouter(new ConsistentHashingGroup(names)), "snapshot-group");
 
             // Create some state and tell one of the actors to save it
             Account acc = new Account("1234");
 
-            router.Tell(new SaveSnapshot(acc.AccountID, acc));
+            // Create a number of actors that will be part of a consistent hash routing group
+            Props testActorProps = Props.Create(() => new TestActor(acc));
+            var iref = actorSystem.ActorOf(testActorProps, "tewstActor");
+
+            iref.Tell(new SomeMessage(acc));
 
             // Wait until actor system terminated
             actorSystem.WhenTerminated.Wait();
         }
 
 
+        private static string GetConfiguration()
+        {
+            return @"
+                akka {
+                    # here we are configuring log levels
+                    log-config-on-start = off
+                    stdout-loglevel = INFO
+                    loglevel = ERROR
+                }
 
+                akka.persistence {
+            	    snapshot-store {
+		                jonfile {
+			                # qualified type name of the File persistence snapshot actor
+            			    class = ""SnapShotStore.FileSnapshotStore, SnapShotStore""
+                            max-load-attempts=19
+                            dir = ""C:\\Users\\joncatlin\\Documents\\Development\\temp""
+
+                            # dispatcher used to drive snapshot storage actor
+                            plugin - dispatcher = ""akka.actor.default-dispatcher""
+                        }
+                    }
+                }
+
+                akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
+                #akka.persistence.snapshot-store.mongodb.connection - string = ""<database connection string>""
+                #akka.persistence.snapshot - store.mongodb.collection = ""<snapshot-store collection>""
+            ";
+        }
 
 
 
@@ -164,8 +179,9 @@ namespace SnapShotStore
             // Open the file for writing
             using (FileStream stream = File.Open(filename, FileMode.Append))
             {
+                /*
                 // Create a binary formatter to convert the object into something that can be saved to a file
-                BinaryFormatter formatter = new BinaryFormatter();
+               BinaryFormatter formatter = new BinaryFormatter();
 
                 // Loop around reading the concurrent queue and writing items to a file as fast as we can.
                 while (true)
@@ -190,6 +206,7 @@ namespace SnapShotStore
                         break;
                     }
                 }
+                */
             }
 
             Console.WriteLine("Finished file " + filename + ", counter=" + counter);
@@ -197,6 +214,7 @@ namespace SnapShotStore
 
         static void createAccounts(ConcurrentQueue<Account> cq)
         {
+/*
             Console.WriteLine("Creating the accounts");
 
             try
@@ -255,7 +273,7 @@ namespace SnapShotStore
                     counter++;
                 }
 
-                file.Close();
+//                file.Close();
 
             }
             catch (Exception e)
@@ -264,7 +282,7 @@ namespace SnapShotStore
             }
 
             Console.WriteLine("Finished creating the accounts");
-
+*/
         }
 
         
@@ -277,6 +295,7 @@ namespace SnapShotStore
             // Open the file for writing
             using (FileStream stream = File.Open(filename, FileMode.Append))
             {
+                /*
                 // Create a binary formatter to convert the object into something that can be saved to a file
                 BinaryFormatter formatter = new BinaryFormatter();
 
@@ -304,6 +323,7 @@ namespace SnapShotStore
                         break;
                     }
                 }
+                */
             }
 
             Console.WriteLine("Finished file " + filename + ", counter=" + counter);
@@ -320,6 +340,7 @@ namespace SnapShotStore
             // Open the file for writing
             using (FileStream stream = File.Open(filename, FileMode.Append))
             {
+                /*
                 // Create a binary formatter to convert the object into something that can be saved to a file
                 BinaryFormatter formatter = new BinaryFormatter();
 
@@ -351,6 +372,7 @@ namespace SnapShotStore
                         break;
                     }
                 }
+                */
             }
 
             Console.WriteLine("Finished file " + filename + ", counter=" + counter);
@@ -369,6 +391,7 @@ namespace SnapShotStore
             // Open the file for writing
             using (FileStream stream = File.Open(filename, FileMode.Append, FileAccess.Write, FileShare.None))
             {
+                /*
                 // Create a binary formatter to convert the object into something that can be saved to a file
                 BinaryFormatter formatter = new BinaryFormatter();
 
@@ -407,6 +430,7 @@ namespace SnapShotStore
                         break;
                     }
                 }
+                */
             }
 
             Console.WriteLine("Finished file " + filename + ", counter=" + counter);
@@ -424,6 +448,7 @@ namespace SnapShotStore
             // Open the file for reading
             using (FileStream stream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
+                /*
                 // Create a binary formatter to convert the object into something that can be saved to a file
                 BinaryFormatter formatter = new BinaryFormatter();
 
@@ -469,14 +494,14 @@ namespace SnapShotStore
                     counter++;
                 }
 
-
+*/
             }
 
 
         }
 
 
-
+/*
         private static void dumpObject(Object obj)
         {
             foreach (PropertyDescriptor descriptor in TypeDescriptor.GetProperties(obj))
@@ -486,7 +511,7 @@ namespace SnapShotStore
                 Console.WriteLine("{0}={1}", name, value);
             }
         }
-
+*/
 
 
 

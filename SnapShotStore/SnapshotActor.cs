@@ -4,7 +4,6 @@ using System.Text;
 using Akka.Actor;
 using System.IO;
 using System.Threading;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Serialization;
 using Akka.Routing;
 
@@ -54,15 +53,14 @@ namespace SnapShotStore
     class SnapshotActor : ReceiveActor
     {
         private FileStream stream = null;
-        private BinaryFormatter formatter = new BinaryFormatter();
+//        private BinaryFormatter formatter = new BinaryFormatter();
         int counter = 0;
 
         // Create the map to the items held in the snapshot store
         const int INITIAL_SIZE = 10000;
         Dictionary<string, long> objectLocation = new Dictionary<string, long>(INITIAL_SIZE);
 
-
-        public SnapshotActor(long actorID, string dir)
+        public SnapshotActor(long actorID, string dir, ActorSystem system)
         {
             // Open the file that is the snapshot store
             string filename = Path.Combine(dir, "snapshot-store" + actorID + ".bin");
@@ -119,16 +117,15 @@ namespace SnapShotStore
 
         public void Write(string id, object obj)
         {
-
             try {
                 // Write the ID of the object to store first so on Initialize() the objects can all be identified correctly
-                formatter.Serialize(stream, id);
+//                formatter.Serialize(stream, id);
 
                 // Get the current location of the file stream so we know where the object is stored on the disk
                 long pos = stream.Position;
 
                 // Writre the object to the store
-                formatter.Serialize(stream, obj);
+//                formatter.Serialize(stream, obj);
                 counter++;
 
                 // Save the information about where the object is located in the file
@@ -156,7 +153,7 @@ namespace SnapShotStore
                 stream.Seek(pos, SeekOrigin.Begin);
 
                 // Read the account to disk
-                obj = formatter.Deserialize(stream);
+//                obj = formatter.Deserialize(stream);
             }
             catch (SerializationException e)
             {
@@ -180,6 +177,7 @@ namespace SnapShotStore
             {
                 try
                 {
+                    /*
                     // Read the account from disk
                     id = (string)formatter.Deserialize(stream);
 
@@ -191,6 +189,7 @@ namespace SnapShotStore
 
                     // Save the information about where the object is located in the file
                     objectLocation.Add(id, pos);
+                    */
                 }
                 catch (SerializationException e)
                 {

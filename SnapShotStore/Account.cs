@@ -1,11 +1,11 @@
-﻿using Akka.Routing;
+﻿using Akka;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace SnapShotStore
 {
-    //[Serializable]
+    [Serializable]
     public class Account
     {
         public Account(string accountID)
@@ -41,7 +41,72 @@ namespace SnapShotStore
         public string RandomText7 { get; set; }
         public string RandomText8 { get; set; }
         public string RandomText9 { get; set; }
+        /*
+        protected Account(SerializationInfo info, StreamingContext context)
+        {
+            AccountID = info.GetString("AccountID");
+            CompanyIDCustomerID = info.GetString("CompanyIDCustomerID");
+            AccountTypeID = info.GetString("AccountTypeID");
+            PrimaryAccountCodeID = info.GetString("PrimaryAccountCodeID");
+            PortfolioID = info.GetInt32("PortfolioID");
+            ContractDate = info.GetString("ContractDate");
+            DelinquencyHistory = info.GetString("DelinquencyHistory");
+            LastPaymentAmount = info.GetString("LastPaymentAmount");
+            LastPaymentDate = info.GetString("LastPaymentDate");
+            SetupDate = info.GetString("SetupDate");
+            CouponNumber = info.GetString("CouponNumber");
+            AlternateAccountNumber = info.GetString("AlternateAccountNumber");
+            Desc1 = info.GetString("Desc1");
+            Desc2 = info.GetString("Desc2");
+            Desc3 = info.GetString("Desc3");
+            ConversionAccountID = info.GetString("ConversionAccountID");
+            SecurityQuestionsAnswered = info.GetString("SecurityQuestionsAnswered");
+            LegalName = info.GetString("LegalName");
+            RandomText0 = info.GetString("RandomText0");
+            RandomText1 = info.GetString("RandomText1");
+            RandomText2 = info.GetString("RandomText2");
+            RandomText3 = info.GetString("RandomText3");
+            RandomText4 = info.GetString("RandomText4");
+            RandomText5 = info.GetString("RandomText5");
+            RandomText6 = info.GetString("RandomText6");
+            RandomText7 = info.GetString("RandomText7");
+            RandomText8 = info.GetString("RandomText8");
+            RandomText9 = info.GetString("RandomText9");
+        }
 
+
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue("AccountID", AccountID);
+            info.AddValue("CompanyIDCustomerID", CompanyIDCustomerID);
+            info.AddValue("AccountTypeID", AccountTypeID);
+            info.AddValue("PrimaryAccountCodeID", PrimaryAccountCodeID);
+            info.AddValue("PortfolioID", PortfolioID);
+            info.AddValue("ContractDate", ContractDate);
+            info.AddValue("DelinquencyHistory", DelinquencyHistory);
+            info.AddValue("LastPaymentAmount", LastPaymentAmount);
+            info.AddValue("LastPaymentDate", LastPaymentDate);
+            info.AddValue("SetupDate", SetupDate);
+            info.AddValue("CouponNumber", CouponNumber);
+            info.AddValue("AlternateAccountNumber", AlternateAccountNumber);
+            info.AddValue("Desc1", Desc1);
+            info.AddValue("Desc2", Desc2);
+            info.AddValue("Desc3", Desc3);
+            info.AddValue("ConversionAccountID", ConversionAccountID);
+            info.AddValue("SecurityQuestionsAnswered", SecurityQuestionsAnswered);
+            info.AddValue("LegalName", LegalName);
+            info.AddValue("RandomText0", RandomText0);
+            info.AddValue("RandomText1", RandomText1);
+            info.AddValue("RandomText2", RandomText2);
+            info.AddValue("RandomText3", RandomText3);
+            info.AddValue("RandomText4", RandomText4);
+            info.AddValue("RandomText5", RandomText5);
+            info.AddValue("RandomText6", RandomText6);
+            info.AddValue("RandomText7", RandomText7);
+            info.AddValue("RandomText8", RandomText8);
+            info.AddValue("RandomText9", RandomText9);
+        }
+        */
     }
 
 
