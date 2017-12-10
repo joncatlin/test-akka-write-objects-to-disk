@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using Akka;
@@ -12,12 +13,12 @@ namespace SnapShotStore
     // The message to be published
     public class SomeMessage
     {
-        public SomeMessage(Account acc)
+        public SomeMessage(Hashtable acc)
         {
             this.Acc = acc;
         }
 
-        public Account Acc { get; private set; }
+        public Hashtable Acc { get; private set; }
     }
     #endregion
 
@@ -25,17 +26,17 @@ namespace SnapShotStore
     {
 
         // The actor state to be persisted
-        private readonly Account Acc;
+        private Hashtable Acc;
 
         public override string PersistenceId
         {
             get
             {
-                return Acc.AccountID;
+                return (string)Acc["AccountID"];
             }
         }
 
-        public TestActor(Account acc)
+        public TestActor(Hashtable acc)
         {
             // Store the actor state 
             Acc = acc;
@@ -75,7 +76,12 @@ namespace SnapShotStore
         private void RecoverSnapshot(SnapshotOffer offer)
         {
             Console.WriteLine("Processing RecoverSnapshot");
-
+            /*
+            Hashtable ht = (Hashtable)offer;
+            foreach (string key in ((Hashtable)offer).Keys)
+            {
+                Console.WriteLine(String.Format("{0}: {1}", key, offer[key]));
+            }*/
         }
 
 

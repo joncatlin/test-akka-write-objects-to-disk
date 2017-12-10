@@ -9,6 +9,7 @@ using System.ComponentModel;
 using Akka.Actor;
 using Akka.Configuration;
 using Akka.Routing;
+using System.Collections;
 
 namespace SnapShotStore
 {
@@ -29,11 +30,18 @@ namespace SnapShotStore
 
 
             // Create some state and tell one of the actors to save it
-            Account acc = new Account("1234");
+            //            Account acc = new Account("1234");
+            var acc = new Hashtable
+            {
+                ["AccountID"] = "1234",
+                ["Name"] = "Jon Catlin",
+                ["Description"] = "This is a description",
+                ["Age"] = 34
+            };
 
             // Create a number of actors that will be part of a consistent hash routing group
             Props testActorProps = Props.Create(() => new TestActor(acc));
-            var iref = actorSystem.ActorOf(testActorProps, "tewstActor");
+            var iref = actorSystem.ActorOf(testActorProps, "testActor");
 
             iref.Tell(new SomeMessage(acc));
 
@@ -49,34 +57,23 @@ namespace SnapShotStore
                     stdout-loglevel = DEBUG
                     loglevel = DEBUG
                     log-config-on-start = on        
-                    actor {                
-                        debug {  
-                                receive = on 
-                                autoreceive = on
-                                lifecycle = on
-                                event-stream = on
-                                unhandled = on
-                        }
-                    } 
                 }
 
                 akka.persistence {
             	    snapshot-store {
 		                jonfile {
 			                # qualified type name of the File persistence snapshot actor
-            			    class = ""SnapShotStore.FileSnapshotStore, SnapShotStore""
+            			    class = ""SnapShotStore.FileSnapshotStore2, SnapShotStore""
                             max-load-attempts=19
                             dir = ""C:\\Users\\joncatlin\\Documents\\Development\\temp""
 
                             # dispatcher used to drive snapshot storage actor
-                            plugin - dispatcher = ""akka.actor.default-dispatcher""
+                            plugin-dispatcher = ""akka.actor.default-dispatcher""
                         }
                     }
                 }
 
                 akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
-                #akka.persistence.snapshot-store.mongodb.connection - string = ""<database connection string>""
-                #akka.persistence.snapshot - store.mongodb.collection = ""<snapshot-store collection>""
             ";
         }
 

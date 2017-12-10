@@ -1,11 +1,8 @@
-﻿using Akka;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Runtime.Serialization.Formatters.Binary;
+using System.Runtime.Serialization;
 
 namespace SnapShotStore
 {
-    [Serializable]
     public class Account
     {
         public Account(string accountID)
@@ -41,7 +38,7 @@ namespace SnapShotStore
         public string RandomText7 { get; set; }
         public string RandomText8 { get; set; }
         public string RandomText9 { get; set; }
-        /*
+
         protected Account(SerializationInfo info, StreamingContext context)
         {
             AccountID = info.GetString("AccountID");
@@ -106,7 +103,6 @@ namespace SnapShotStore
             info.AddValue("RandomText8", RandomText8);
             info.AddValue("RandomText9", RandomText9);
         }
-        */
     }
 
 
