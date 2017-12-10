@@ -45,11 +45,19 @@ namespace SnapShotStore
         private static string GetConfiguration()
         {
             return @"
-                akka {
-                    # here we are configuring log levels
-                    log-config-on-start = off
-                    stdout-loglevel = INFO
-                    loglevel = ERROR
+                akka {  
+                    stdout-loglevel = DEBUG
+                    loglevel = DEBUG
+                    log-config-on-start = on        
+                    actor {                
+                        debug {  
+                                receive = on 
+                                autoreceive = on
+                                lifecycle = on
+                                event-stream = on
+                                unhandled = on
+                        }
+                    } 
                 }
 
                 akka.persistence {

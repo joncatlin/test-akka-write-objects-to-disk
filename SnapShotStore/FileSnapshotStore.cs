@@ -41,6 +41,7 @@ namespace SnapShotStore
 
         public FileSnapshotStore()
         {
+
             // Get this actors number in the pool
             ActorNumber = FileSnapshotStore.GetActorNumber();
 
@@ -55,7 +56,13 @@ namespace SnapShotStore
 
             _serialization = Context.System.Serialization;
             _saving = new SortedSet<SnapshotMetadata>(SnapshotMetadata.Comparer); // saving in progress
-            _log = Context.GetLogger();
+//            _log = Context.GetLogger();
+            _log = Logging.GetLogger(Context);
+        // Log the configuration parameters
+        _log.Info("This actor name= {}", Context.Self.Path);
+            _log.Debug("Hellp Jon");
+
+
         }
 
         protected override Task DeleteAsync(SnapshotMetadata metadata)
