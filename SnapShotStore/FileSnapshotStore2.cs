@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Akka.Event;
 using Akka.Dispatch;
 using Akka.Serialization;
+using System.Runtime.CompilerServices;
 
 namespace SnapShotStore
 {
@@ -31,14 +32,17 @@ namespace SnapShotStore
         private readonly MessageDispatcher _streamDispatcher;
         private readonly string _dir;
         private readonly ISet<SnapshotMetadata> _saving;
-//        private readonly Akka.Serialization.Serialization _serialization;
-//        private string _defaultSerializer;
+        //        private readonly Akka.Serialization.Serialization _serialization;
+        //        private string _defaultSerializer;
 
 
-//??
+        //??
+        private long _latestSnapshotSeqNr;
+
         private readonly Akka.Serialization.Serialization _serializerEntry;
-            
-        private FileStream _stream = null;
+
+        private FileStream _writeStream = null;
+        private FileStream _readStream = null;
         private BinaryFormatter _formatter;
 
         // Default constants in case the coniguration item is missing
@@ -103,25 +107,25 @@ namespace SnapShotStore
             _log.Info("Opening the snapshot store for this instance, filename = {0}", filename);
             try
             {
-                _stream = File.Open(filename, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                _writeStream = File.Open(filename, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+                _readStream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             }
             catch (Exception e)
             {
                 _log.Error("Error opening the snapshot store file, error: {0}", e.StackTrace);
                 throw e;
             }
-
-            // Initialize the snapshot map with all the positions of the stored snapshots
-            Initiailize();
         }
 
         protected override Task DeleteAsync(SnapshotMetadata metadata)
         {
+            _log.Debug("DeleteAsync() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
             throw new NotImplementedException();
         }
 
         protected override Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
+            _log.Debug("DeleteAsync() - PersistenceId: {0}", persistenceId);
             throw new NotImplementedException();
         }
 
@@ -130,21 +134,26 @@ namespace SnapShotStore
         /// </summary>
         protected override Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
+            _log.Debug("LoadAsync() -persistenceId: {0}", persistenceId);
+
             // Create an empty SnapshotMetadata
             SnapshotMetadata metadata = new SnapshotMetadata(persistenceId, -1);
 
             return RunWithStreamDispatcher(() => Load(metadata));
         }
 
+        /// <summary>
+        /// Stores the snapshot in the file asdynchronously
+        /// </summary>
         protected override Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
+            _log.Debug("SaveAsync() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
+
+            return RunWithStreamDispatcher(() =>
             {
-                return RunWithStreamDispatcher(() =>
-                {
-                    Save(metadata, snapshot);
-                    return new object();
-                });
-            }
+                Save(metadata, snapshot);
+                return new object();
+            });
         }
 
 
@@ -153,18 +162,27 @@ namespace SnapShotStore
         /// </summary>
         /// <param name="metadata">TBD</param>
         /// <param name="snapshot">TBD</param>
+        [MethodImpl(MethodImplOptions.Synchronized)]
         protected virtual void Save(SnapshotMetadata metadata, object snapshot)
         {
+            _log.Debug("Save() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
+
             try
             {
                 // Write the ID of the object to store first so on Initialize() the objects can all be identified correctly
-                _formatter.Serialize(_stream, metadata.PersistenceId);
+                _log.Debug("--1--");
+                _formatter.Serialize(_writeStream, metadata.PersistenceId);
+                _log.Debug("--2--");
+                _formatter.Serialize(_writeStream, metadata.SequenceNr);
+                _log.Debug("--3--");
+                _formatter.Serialize(_writeStream, metadata.Timestamp);
 
                 // Get the current location of the file stream so we know where the object is stored on the disk
-                long pos = _stream.Position;
+                long pos = _writeStream.Position;
 
                 // Writre the object to the store
-                _formatter.Serialize(_stream, snapshot);
+                _log.Debug("--4--");
+                _formatter.Serialize(_writeStream, snapshot);
  //               counter++;
 
                 // Save the information about where the object is located in the file
@@ -178,6 +196,7 @@ namespace SnapShotStore
                     stream.Flush(true);
                 }
                */
+                _writeStream.Flush();
             }
             catch (SerializationException e)
             {
@@ -194,7 +213,10 @@ namespace SnapShotStore
         /// </summary>
         private SelectedSnapshot Load(SnapshotMetadata metadata)
         {
+            _log.Debug("Load() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
+
             // Find the snapshot that matches the criteria or return null
+            // TODO Implement the mechanism to match the criteria
             if (!SnapshotMap.ContainsKey(metadata.PersistenceId)) return null;
 
             // Find the id in the map to get the position within the file
@@ -203,10 +225,10 @@ namespace SnapShotStore
             try
             {
                 // Position to the saved location for the object
-                _stream.Seek(pos, SeekOrigin.Begin);
+                _readStream.Seek(pos, SeekOrigin.Begin);
 
                 // Read the account to disk
-                obj = _formatter.Deserialize(_stream);
+                obj = _formatter.Deserialize(_readStream);
             }
             catch (SerializationException e)
             {
@@ -244,35 +266,52 @@ namespace SnapShotStore
         }
 
 
-        private void Initiailize()
+
+        protected override void PreStart()
         {
-            string id;
+            SnapshotMetadata metadata;
             long pos = 0;
             object obj;
             var buffer = new byte[_maxSnapshotSize];
 
+            _log.Debug("PreStart() - reading the snapshot file to build map");
+
+
             // Ensure that the position in the stream is at the start of the file
-            _stream.Seek(0, SeekOrigin.Begin);
+            _readStream.Seek(0, SeekOrigin.Begin);
             
             // Loop through the snapshot store file and find all the previous objects written
             // add any objects found to the map
             // TODO must cope with corrupt files or missing items in a file. For example what happens
             // when the ID of the snapshot is writen but the snapshot object itself is missing or corrupt
-            while (_stream.Position < _stream.Length)
+            while (_readStream.Position < _readStream.Length)
             {
                 try
                 {
                     // Read the account from disk
-                    id = (string)_formatter.Deserialize(_stream);
+                    string id = (string)_formatter.Deserialize(_readStream);
+                    long seq = (long)_formatter.Deserialize(_readStream);
+                    DateTime time = (DateTime)_formatter.Deserialize(_readStream);
+
+                    metadata = new SnapshotMetadata(id, seq, time);
+                    //                    metadata = (SnapshotMetadata)_formatter.Deserialize(_readStream);
+
+
+                    _log.Debug("PreStart() - read metadata from file: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
 
                     // Get the current location of the file stream so we know where the object is stored on the disk
-                    pos = _stream.Position;
+                    pos = _readStream.Position;
 
                     // Read the account from disk
-                    obj = _formatter.Deserialize(_stream);
+                    obj = _formatter.Deserialize(_readStream);
 
                     // Save the information about where the object is located in the file
-                    SnapshotMap.Add(id, pos);
+                    if (!SnapshotMap.TryAdd(metadata.PersistenceId, pos))
+                    {
+                        SnapshotMap.Remove(metadata.PersistenceId);
+                        SnapshotMap.Add(metadata.PersistenceId, pos);
+                    }
+
                 }
                 catch (SerializationException e)
                 {
@@ -280,10 +319,19 @@ namespace SnapShotStore
                     throw;
                 }
             }
-
-            // TODO determine if this routine needs to leave the file position at the end
         }
 
+
+        protected override void PostStop()
+        {
+            _log.Debug("PostStop() - flushing and closing the file");
+
+            // Close the file and ensure that everything is flushed correctly
+            _writeStream.Flush();
+            _writeStream.Close();
+            _readStream.Close();
+
+        }
 
     }
 }

@@ -67,10 +67,7 @@ namespace SnapShotStore
         private void Process(SomeMessage msg)
         {
             SaveSnapshot(Acc);
-
-            // Show the system configuration
-            Console.WriteLine(Context.System.Settings.Config);
-
+            Console.WriteLine("Processing SaveSnapshot in testactor");
         }
 
         private void RecoverSnapshot(SnapshotOffer offer)

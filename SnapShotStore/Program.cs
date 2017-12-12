@@ -39,14 +39,45 @@ namespace SnapShotStore
                 ["Age"] = 34
             };
 
-            // Create a number of actors that will be part of a consistent hash routing group
-            Props testActorProps = Props.Create(() => new TestActor(acc));
-            var iref = actorSystem.ActorOf(testActorProps, "testActor");
 
-            iref.Tell(new SomeMessage(acc));
+            Props testActorProps = Props.Create(() => new TestActor(acc));
+
+            // Create the actors
+            int NUM_ACTORS = 10;
+            IActorRef[] irefs = new IActorRef[NUM_ACTORS];
+            for (int i=0; i < NUM_ACTORS; i++)
+            {
+                irefs[i] = actorSystem.ActorOf(testActorProps, "testActor"+i);
+            }
+
+            // Wait 5 seconds for things to calm down
+            System.Threading.Thread.Sleep(5000);
+
+            // Start the timer to measure how long it takes to complete the test
+            Console.WriteLine("Starting the test");
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
+
+
+            // Send three msgs to see if the metadata seq number changes
+            for (int i = 0; i < NUM_ACTORS; i++)
+            {
+                irefs[i].Tell(new SomeMessage(acc));
+            }
+
+            // Get the elapsed time as a TimeSpan value.
+            stopWatch.Stop();
+            TimeSpan ts = stopWatch.Elapsed;
+
+            // Format and display the TimeSpan value.
+            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}",
+                ts.Hours, ts.Minutes, ts.Seconds,
+                ts.Milliseconds / 10);
+            Console.WriteLine("RunTime for telling the actors" + elapsedTime);
 
             // Wait until actor system terminated
             actorSystem.WhenTerminated.Wait();
+
         }
 
 
@@ -54,8 +85,8 @@ namespace SnapShotStore
         {
             return @"
                 akka {  
-                    stdout-loglevel = DEBUG
-                    loglevel = DEBUG
+                    stdout-loglevel = ERROR
+                    loglevel = ERROR
                     log-config-on-start = on        
                 }
 
@@ -65,7 +96,7 @@ namespace SnapShotStore
 			                # qualified type name of the File persistence snapshot actor
             			    class = ""SnapShotStore.FileSnapshotStore2, SnapShotStore""
                             max-load-attempts=19
-                            dir = ""C:\\Users\\joncatlin\\Documents\\Development\\temp""
+                            dir = ""C:\\Users\\jcatlin.CSC\\Documents\\Development\\temp""
 
                             # dispatcher used to drive snapshot storage actor
                             plugin-dispatcher = ""akka.actor.default-dispatcher""
