@@ -120,14 +120,41 @@ namespace SnapShotStore
         protected override Task DeleteAsync(SnapshotMetadata metadata)
         {
             _log.Debug("DeleteAsync() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
-            throw new NotImplementedException();
+            return RunWithStreamDispatcher(() =>
+            {
+                Delete(metadata);
+                return new object();
+            });
         }
+
 
         protected override Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
-            _log.Debug("DeleteAsync() - PersistenceId: {0}", persistenceId);
-            throw new NotImplementedException();
+            _log.Debug("DeleteAsync() -persistenceId: {0}", persistenceId);
+
+            // Create an empty SnapshotMetadata
+            SnapshotMetadata metadata = new SnapshotMetadata(persistenceId, -1);
+
+            return RunWithStreamDispatcher(() =>
+            {
+                Delete(metadata);
+                return new object();
+            });
+
         }
+
+        /// <summary>
+        /// Deletes a snapshot from the store
+        /// </summary>
+        /// <param name="metadata">TBD</param>
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        protected virtual void Delete(SnapshotMetadata metadata)
+        {
+            _log.Debug("Delete() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
+        }
+
+
+
 
         /// <summary>
         /// Finds the requested snapshot in the file and returns it asynchronously. If no snapshot is found it returns null without waiting
@@ -142,6 +169,8 @@ namespace SnapShotStore
             return RunWithStreamDispatcher(() => Load(metadata));
         }
 
+            
+            
         /// <summary>
         /// Stores the snapshot in the file asdynchronously
         /// </summary>

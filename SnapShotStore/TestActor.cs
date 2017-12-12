@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using Akka;
 using Akka.Actor;
+using Akka.Event;
 using Akka.Persistence;
 
 
@@ -13,17 +14,12 @@ namespace SnapShotStore
     // The message to be published
     public class SomeMessage
     {
-        public SomeMessage(Hashtable acc)
-        {
-            this.Acc = acc;
-        }
-
-        public Hashtable Acc { get; private set; }
     }
     #endregion
 
     class TestActor : ReceivePersistentActor
     {
+        private ILoggingAdapter _log;
 
         // The actor state to be persisted
         private Hashtable Acc;
@@ -38,6 +34,8 @@ namespace SnapShotStore
 
         public TestActor(Hashtable acc)
         {
+            _log = Context.GetLogger();
+
             // Store the actor state 
             Acc = acc;
 
@@ -54,25 +52,25 @@ namespace SnapShotStore
 
         private void SnapshotSuccess(SaveSnapshotSuccess cmd)
         {
-            Console.WriteLine("Processing SnapShotSuccess command");
+            _log.Info("Processing SnapShotSuccess command");
 
         }
 
         private void SnapshotFailure(SaveSnapshotFailure cmd)
         {
-            Console.WriteLine("Processing SnapShotFailure command");
+            _log.Info("Processing SnapShotFailure command");
 
         }
 
         private void Process(SomeMessage msg)
         {
             SaveSnapshot(Acc);
-            Console.WriteLine("Processing SaveSnapshot in testactor");
+            _log.Info("Processing SaveSnapshot in testactor");
         }
 
         private void RecoverSnapshot(SnapshotOffer offer)
         {
-            Console.WriteLine("Processing RecoverSnapshot");
+            _log.Info("Processing RecoverSnapshot");
             /*
             Hashtable ht = (Hashtable)offer;
             foreach (string key in ((Hashtable)offer).Keys)

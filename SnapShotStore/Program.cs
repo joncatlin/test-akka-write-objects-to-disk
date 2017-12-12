@@ -29,24 +29,19 @@ namespace SnapShotStore
 
 
 
-            // Create some state and tell one of the actors to save it
-            //            Account acc = new Account("1234");
-            var acc = new Hashtable
-            {
-                ["AccountID"] = "1234",
-                ["Name"] = "Jon Catlin",
-                ["Description"] = "This is a description",
-                ["Age"] = 34
-            };
-
-
-            Props testActorProps = Props.Create(() => new TestActor(acc));
-
             // Create the actors
-            int NUM_ACTORS = 10;
+            int NUM_ACTORS = 120000;
             IActorRef[] irefs = new IActorRef[NUM_ACTORS];
             for (int i=0; i < NUM_ACTORS; i++)
             {
+                var acc = new Hashtable
+                {
+                    ["AccountID"] = i.ToString(),
+                    ["Name"] = "Jon Catlin",
+                    ["Description"] = "This is a description",
+                    ["Age"] = 34
+                };
+                Props testActorProps = Props.Create(() => new TestActor(acc));
                 irefs[i] = actorSystem.ActorOf(testActorProps, "testActor"+i);
             }
 
@@ -62,7 +57,7 @@ namespace SnapShotStore
             // Send three msgs to see if the metadata seq number changes
             for (int i = 0; i < NUM_ACTORS; i++)
             {
-                irefs[i].Tell(new SomeMessage(acc));
+                irefs[i].Tell(new SomeMessage());
             }
 
             // Get the elapsed time as a TimeSpan value.
@@ -96,7 +91,7 @@ namespace SnapShotStore
 			                # qualified type name of the File persistence snapshot actor
             			    class = ""SnapShotStore.FileSnapshotStore2, SnapShotStore""
                             max-load-attempts=19
-                            dir = ""C:\\Users\\jcatlin.CSC\\Documents\\Development\\temp""
+                            dir = ""C:\\Users\\joncatlin\\Documents\\Development\\temp""
 
                             # dispatcher used to drive snapshot storage actor
                             plugin-dispatcher = ""akka.actor.default-dispatcher""
@@ -105,6 +100,8 @@ namespace SnapShotStore
                 }
 
                 akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
+
+                # akka.persistence.max-concurrent-recoveries = 50
             ";
         }
 
