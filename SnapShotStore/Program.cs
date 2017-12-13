@@ -30,7 +30,7 @@ namespace SnapShotStore
 
 
             // Create the actors
-            int NUM_ACTORS = 120000;
+            int NUM_ACTORS = 1000;
             IActorRef[] irefs = new IActorRef[NUM_ACTORS];
             for (int i=0; i < NUM_ACTORS; i++)
             {
@@ -91,7 +91,7 @@ namespace SnapShotStore
 			                # qualified type name of the File persistence snapshot actor
             			    class = ""SnapShotStore.FileSnapshotStore2, SnapShotStore""
                             max-load-attempts=19
-                            dir = ""C:\\Users\\joncatlin\\Documents\\Development\\temp""
+                            dir = ""C:\\temp""
 
                             # dispatcher used to drive snapshot storage actor
                             plugin-dispatcher = ""akka.actor.default-dispatcher""
