@@ -30,7 +30,7 @@ namespace SnapShotStore
 
 
             // Create the actors
-            int NUM_ACTORS = 1000;
+            int NUM_ACTORS = 10;
             IActorRef[] irefs = new IActorRef[NUM_ACTORS];
             for (int i=0; i < NUM_ACTORS; i++)
             {
@@ -80,8 +80,8 @@ namespace SnapShotStore
         {
             return @"
                 akka {  
-                    stdout-loglevel = ERROR
-                    loglevel = ERROR
+                    stdout-loglevel = DEBUG
+                    loglevel = DEBUG
                     log-config-on-start = on        
                 }
 
@@ -89,7 +89,7 @@ namespace SnapShotStore
             	    snapshot-store {
 		                jonfile {
 			                # qualified type name of the File persistence snapshot actor
-            			    class = ""SnapShotStore.FileSnapshotStore2, SnapShotStore""
+            			    class = ""SnapShotStore.FileSnapshotStore3, SnapShotStore""
                             max-load-attempts=19
                             dir = ""C:\\temp""
 

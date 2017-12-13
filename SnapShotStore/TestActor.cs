@@ -52,25 +52,23 @@ namespace SnapShotStore
 
         private void SnapshotSuccess(SaveSnapshotSuccess cmd)
         {
-            _log.Info("Processing SnapShotSuccess command");
-
+            _log.Info("Processing SnapShotSuccess command, ID={0}", Acc["AccountID"]);
         }
 
         private void SnapshotFailure(SaveSnapshotFailure cmd)
         {
-            _log.Info("Processing SnapShotFailure command");
-
+            _log.Info("Processing SnapShotFailure command, ID={0}, cause={1} \nStacktrace={2}", Acc["AccountID"], cmd.Cause.Message, cmd.Cause.StackTrace);
         }
 
         private void Process(SomeMessage msg)
         {
             SaveSnapshot(Acc);
-            _log.Info("Processing SaveSnapshot in testactor");
+            _log.Info("Processing SaveSnapshot in testactor, ID={0}", Acc["AccountID"]);
         }
 
         private void RecoverSnapshot(SnapshotOffer offer)
         {
-            _log.Info("Processing RecoverSnapshot");
+            _log.Info("Processing RecoverSnapshot, ID={0}", Acc["AccountID"]);
             /*
             Hashtable ht = (Hashtable)offer;
             foreach (string key in ((Hashtable)offer).Keys)
