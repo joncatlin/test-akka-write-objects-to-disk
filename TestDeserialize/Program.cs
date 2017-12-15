@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Text;
 
 namespace TestDeserialize
 {
@@ -127,13 +128,85 @@ namespace TestDeserialize
             }
 
             // Serialize object
+            const int PERSISTENCE_ID_OFFSET = 4;
+            const int MAX_ID_SIZE = 10000;
+            const int SIZE_OF_LENGTH = 4;
+            const int SIZE_OF_POSITION = 8;
+            const int SIZE_OF_DELETED = 1;
+            var buffer = new byte[MAX_ID_SIZE+SIZE_OF_LENGTH+SIZE_OF_POSITION+SIZE_OF_DELETED];
+
             for (int i=0; i < list.Count; i++)
             {
+                string s = (string)(list[0]["PersistenceId"]);
+                int length = Encoding.ASCII.GetBytes(s, 0, s.Length, buffer, PERSISTENCE_ID_OFFSET);
 
+                // TODO throw an exception on this
+                if (length > MAX_ID_SIZE)
+                    Console.WriteLine("Error: PersistenceId is too large");
+
+                // Convert and store the length of the string 
+                buffer[0] = (byte)(length >> 24);
+                buffer[1] = (byte)(length >> 16);
+                buffer[2] = (byte)(length >> 8);
+                buffer[3] = (byte)(length);
+
+                // Convert the position in the file to bytes
+                buffer[length + PERSISTENCE_ID_OFFSET] = 
+                buffer[length + PERSISTENCE_ID_OFFSET + 1] =
+                buffer[length + PERSISTENCE_ID_OFFSET + 2] =
+                buffer[length + PERSISTENCE_ID_OFFSET + 3] =
+                buffer[length + PERSISTENCE_ID_OFFSET + 4] =
+                buffer[length + PERSISTENCE_ID_OFFSET + 5] =
+                buffer[length + PERSISTENCE_ID_OFFSET + 6] =
+                buffer[length + PERSISTENCE_ID_OFFSET + 7] =
+
+
+                // Convert the Deleted value to bytes
             }
             // Write to stream
 
             // Close the file
         }
+
+
+        /*
+        		protected override void CopyBytesImpl(long value, int bytes, byte[] buffer, int index)
+		{
+			int endOffset = index+bytes-1;
+			for (int i=0; i < bytes; i++)
+			{
+				buffer[endOffset-i] = unchecked((byte)(value&0xff));
+				value = value >> 8;
+			}
+		}
+		
+		/// <summary>
+		/// Returns a value built from the specified number of bytes from the given buffer,
+		/// starting at index.
+		/// </summary>
+		/// <param name="buffer">The data in byte array format</param>
+		/// <param name="startIndex">The first index to use</param>
+		/// <param name="bytesToConvert">The number of bytes to use</param>
+		/// <returns>The value built from the given bytes</returns>
+		protected override long FromBytes(byte[] buffer, int startIndex, int bytesToConvert)
+		{
+			long ret = 0;
+			for (int i=0; i < bytesToConvert; i++)
+			{
+				ret = unchecked((ret << 8) | buffer[startIndex+i]);
+			}
+			return ret;
+            */
+
+
+
+
+
+
+
+
+
+
+
     }
 }
