@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -104,6 +105,35 @@ namespace TestDeserialize
             // Writre the object to the store
             _formatter.Serialize(_writeStream, obj);
 
+        }
+
+
+        private void WriteSE ()
+        {
+            // Open the file for writing
+            Stream stream = new FileStream(@"C:\temp\test.bin", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+
+            // Create some objects to serialize 
+            List<Hashtable> list = new List<Hashtable>(100);
+            for (int i=0; i < 100; i++)
+            {
+                var ht = new Hashtable();
+                ht.Add("PersistenceId", "_$PersistenceId:()" + i);
+                ht.Add("Position", i);
+                ht.Add("Length", i*10);
+                Boolean deleted = ((i % 2 == 0) ? true : false);
+                ht.Add("Deleted", deleted);
+                list.Add(ht);
+            }
+
+            // Serialize object
+            for (int i=0; i < list.Count; i++)
+            {
+
+            }
+            // Write to stream
+
+            // Close the file
         }
     }
 }
