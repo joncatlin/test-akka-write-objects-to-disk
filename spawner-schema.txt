@@ -1,0 +1,18 @@
+AccountID,GUID,With Dashes (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+CompanyIDCustomerID,GUID,With Dashes (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+AccountTypeID,Human,Social Security Number
+PrimaryAccountCodeID,Human,Phone Number (###-###-####)
+PortfolioID,Numbers,Integer,0|100
+ContractDate,Time,Date,33205|42709|3|False|MM/dd/yyyy|h:nn:ss
+DelinquencyHistory,Text,Random Number of Words,50|200
+LastPaymentAmount,Numbers,Real,100|10000|2
+LastPaymentDate,Time,Date,42005|43074|3|False|MM/dd/yyyy|h:nn:ss
+SetupDate,Time,Date,36526|41248|3|False|MM/dd/yyyy|h:nn:ss
+CouponNumber,Text,Masked String,aa-aaaa-99-999999
+AlternateAccountNumber,Text,Masked String,999-99999-99-aaaaaa
+Desc1,Text,Random Number of Words,5|50
+Desc2,Text,Random Number of Words,5|50
+Desc3,Text,Random Number of Words,5|50
+ConversionAccountID,Text,Masked String,LL-aa-99999-aaaa-99999
+SecurityQuestionsAnswered,Text,Random Number of Words,2|5
+LegalName,Human,Full Name,True|True
