@@ -1,4 +1,4 @@
-AccountID,GUID,With Dashes (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+AccountID,Text,Random-length String,5|25|False|True|False|False
 CompanyIDCustomerID,GUID,With Dashes (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
 AccountTypeID,Human,Social Security Number
 PrimaryAccountCodeID,Human,Phone Number (###-###-####)

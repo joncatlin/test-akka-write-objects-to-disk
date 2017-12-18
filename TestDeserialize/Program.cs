@@ -13,58 +13,71 @@ namespace TestDeserialize
         static void Main(string[] args)
         {
 
+            Random rnd = new Random();
+
+
             // Create some objects to serialize 
             Console.WriteLine("Creating objects to write to SE file and then read and compare");
             List<Hashtable> list = new List<Hashtable>(100);
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 100000; i++)
             {
                 var ht = new Hashtable();
-                ht.Add("PersistenceId", "_$PersistenceId:()" + i);
-                ht.Add("Position", (long)i);
-                ht.Add("Length", i * 10);
+                ht.Add("PersistenceId", rnd.Next(1, 1000000).ToString());
+                ht.Add("Position", (long)rnd.Next(1, 10000));
+                ht.Add("Length", (int)rnd.Next(20, 500));
                 bool deleted = ((i % 2 == 0) ? true : false);
                 ht.Add("Deleted", deleted);
                 list.Add(ht);
             }
 
-            Console.WriteLine("Writins SE to file");
+            Console.WriteLine("Writing SEs to file");
             WriteSE(list);
+
+            Console.WriteLine("Reading SEs from file");
             var readList = ReadSE();
 
-            /*
-            var _formatter = new BinaryFormatter();
-            Stream stream = new FileStream(@"C:\Users\jcatlin.CSC\Documents\Development\temp\file-snapshot-store4.bin", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
 
-            var acc = new Hashtable
+            for (int i = 0; i < 100; i++)
             {
-                ["AccountID"] = "1234",
-                ["Name"] = "Jon Catlin",
-                ["Description"] = "This is a description",
-                ["Age"] = 34
-            };
-            */
-            /*
-                        Write(stream, _formatter, acc, "1234");
+                if (!list[i].Equals(readList[i]))
+                {
+                    Console.WriteLine($"Value at {0} does not match", i);
+                }
+            }
+                /*
+                var _formatter = new BinaryFormatter();
+                Stream stream = new FileStream(@"C:\Users\jcatlin.CSC\Documents\Development\temp\file-snapshot-store4.bin", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
 
-                        acc["AccountID"] = "1235";
-                        acc["Description"] = "This is the second object we are writing";
-                        Write(stream, _formatter, acc, "1235");
+                var acc = new Hashtable
+                {
+                    ["AccountID"] = "1234",
+                    ["Name"] = "Jon Catlin",
+                    ["Description"] = "This is a description",
+                    ["Age"] = 34
+                };
+                */
+                /*
+                            Write(stream, _formatter, acc, "1234");
 
-                        acc["AccountID"] = "1236";
-                        acc["Description"] = "This is yet another object that we are writing and has a longer length than the other objects";
-                        Write(stream, _formatter, acc, "1236");
+                            acc["AccountID"] = "1235";
+                            acc["Description"] = "This is the second object we are writing";
+                            Write(stream, _formatter, acc, "1235");
 
-                        acc["AccountID"] = "1237";
-                        acc["Description"] = "A short desc";
-                        Write(stream, _formatter, acc, "1237");
-            */
-            // Read(stream, _formatter);
-        }
+                            acc["AccountID"] = "1236";
+                            acc["Description"] = "This is yet another object that we are writing and has a longer length than the other objects";
+                            Write(stream, _formatter, acc, "1236");
+
+                            acc["AccountID"] = "1237";
+                            acc["Description"] = "A short desc";
+                            Write(stream, _formatter, acc, "1237");
+                */
+                // Read(stream, _formatter);
+            }
 
 
 
 
-        private static void Read(Stream _readStream, BinaryFormatter _formatter)
+            private static void Read(Stream _readStream, BinaryFormatter _formatter)
         {
             long pos = 0;
             object obj;
@@ -138,9 +151,10 @@ namespace TestDeserialize
             const int PERSISTENCE_ID_OFFSET = 4;
             const int MAX_ID_SIZE = 10000;
             const int SIZE_OF_LENGTH = 4;
+            const int SIZE_OF_SNAPSHOT_LENGTH = 4;
             const int SIZE_OF_POSITION = 8;
             const int SIZE_OF_DELETED = 1;
-            var buffer = new byte[MAX_ID_SIZE + SIZE_OF_LENGTH + SIZE_OF_POSITION + SIZE_OF_DELETED];
+            var buffer = new byte[MAX_ID_SIZE + SIZE_OF_LENGTH + SIZE_OF_POSITION + SIZE_OF_SNAPSHOT_LENGTH + SIZE_OF_DELETED];
 
             for (int i = 0; i < list.Count; i++)
             {
@@ -167,12 +181,18 @@ namespace TestDeserialize
                 buffer[length + PERSISTENCE_ID_OFFSET + 6] = (byte)((long)(list[i]["Position"]) >> 8);
                 buffer[length + PERSISTENCE_ID_OFFSET + 7] = (byte)((long)(list[i]["Position"]));
 
+                // Convert and store the length of the snapshot
+                buffer[length + PERSISTENCE_ID_OFFSET + 8] = (byte)((int)list[i]["Length"] >> 24);
+                buffer[length + PERSISTENCE_ID_OFFSET + 9] = (byte)((int)list[i]["Length"] >> 16);
+                buffer[length + PERSISTENCE_ID_OFFSET + 10] = (byte)((int)list[i]["Length"] >> 8);
+                buffer[length + PERSISTENCE_ID_OFFSET + 11] = (byte)((int)list[i]["Length"]);
+
                 // Convert the Deleted value to bytes
                 bool deleted = ((bool)(list[i]["Deleted"]));
-                buffer[length + PERSISTENCE_ID_OFFSET + 8] = (byte)(deleted ? 1 : 0);
+                buffer[length + PERSISTENCE_ID_OFFSET + 12] = (byte)(deleted ? 1 : 0);
 
                 // Write to stream
-                stream.Write(buffer, 0, length + PERSISTENCE_ID_OFFSET + 8 + 1);
+                stream.Write(buffer, 0, length + PERSISTENCE_ID_OFFSET + 12 + 1);
             }
 
             stream.Close();
@@ -183,144 +203,65 @@ namespace TestDeserialize
 
             List<Hashtable> list = new List<Hashtable>(100);
 
-            /*
-            for (int i = 0; i < 100; i++)
-            {
-                var ht = new Hashtable();
-                ht.Add("PersistenceId", "_$PersistenceId:()" + i);
-                ht.Add("Position", (long)i);
-                ht.Add("Length", i * 10);
-                bool deleted = ((i % 2 == 0) ? true : false);
-                ht.Add("Deleted", deleted);
-                list.Add(ht);
-            }
-*/
-
-
-
-
-
-
-
-
-
-
-
-
             // Open the file for writing
             Stream stream = new FileStream(@"C:\temp\test.bin", FileMode.Open, FileAccess.Read, FileShare.Read);
-
 
             // Serialize object
             const int PERSISTENCE_ID_OFFSET = 4;
             const int MAX_ID_SIZE = 10000;
             const int SIZE_OF_LENGTH = 4;
+            const int SIZE_OF_SNAPSHOT_LENGTH = 4;
             const int SIZE_OF_POSITION = 8;
             const int SIZE_OF_DELETED = 1;
-            var buffer = new byte[MAX_ID_SIZE + SIZE_OF_LENGTH + SIZE_OF_POSITION + SIZE_OF_DELETED];
+            var lengthBuffer = new byte[SIZE_OF_LENGTH];
+            var buffer = new byte[MAX_ID_SIZE + SIZE_OF_LENGTH + SIZE_OF_POSITION + SIZE_OF_SNAPSHOT_LENGTH + SIZE_OF_DELETED];
             long filePos = 0;
 
+            // Read all of the Snapshot File Entries from the file
             while (filePos < stream.Length)
             {
-                stream.Read(buffer, (int)filePos, buffer.Length);
+                // Determine the size of the PersistenceId
+                stream.Read(lengthBuffer, 0, lengthBuffer.Length);
+                int length = (lengthBuffer[0] << 24 | (lengthBuffer[1] & 0xFF) << 16 | (lengthBuffer[2] & 0xFF) << 8 | (lengthBuffer[3] & 0xFF));
+
 
                 // Get the PersistenceID string from the file
-                int length = (buffer[0] << 24 | (buffer[1] & 0xFF) << 16 | (buffer[2] & 0xFF) << 8 | (buffer[3] & 0xFF));
-                var PersistenceID = Encoding.ASCII.GetString(buffer, PERSISTENCE_ID_OFFSET, length);
+                stream.Read(buffer, 0, length + SIZE_OF_POSITION + SIZE_OF_SNAPSHOT_LENGTH + SIZE_OF_DELETED);
+                var PersistenceID = Encoding.ASCII.GetString(buffer, 0, length);
 
                 // Get the Position from the file
-                long position = buffer[length + PERSISTENCE_ID_OFFSET] << 56 |
-                    (buffer[length + PERSISTENCE_ID_OFFSET + 1] & 0xFF) << 48 |
-                    (buffer[length + PERSISTENCE_ID_OFFSET + 2] & 0xFF) << 40 |
-                    (buffer[length + PERSISTENCE_ID_OFFSET + 3] & 0xFF) << 32 |
-                    (buffer[length + PERSISTENCE_ID_OFFSET + 4] & 0xFF) << 24 |
-                    (buffer[length + PERSISTENCE_ID_OFFSET + 5] & 0xFF) << 16 |
-                    (buffer[length + PERSISTENCE_ID_OFFSET + 6] & 0xFF) << 8 |
-                    (buffer[length + PERSISTENCE_ID_OFFSET + 7] & 0xFF);
-                    
-                /*
+                long position = buffer[length] << 56 |
+                    (buffer[length + 1] & 0xFF) << 48 |
+                    (buffer[length + 2] & 0xFF) << 40 |
+                    (buffer[length + 3] & 0xFF) << 32 |
+                    (buffer[length + 4] & 0xFF) << 24 |
+                    (buffer[length + 5] & 0xFF) << 16 |
+                    (buffer[length + 6] & 0xFF) << 8 |
+                    (buffer[length + 7] & 0xFF);
 
+                // Get the snapshotLength
+                int snapshotLength = (buffer[length + 8] << 24 | (buffer[length + 9] & 0xFF) << 16 | 
+                    (buffer[length + 10] & 0xFF) << 8 | (buffer[length + 11] & 0xFF));
 
-                                    , 0, s.Length, buffer, PERSISTENCE_ID_OFFSET);
+                // Convert the Deleted value to bytes
+                bool deleted = (buffer[length + 12] == 1) ? true : false;
 
-                                string s = (string)(list[i]["PersistenceId"]);
-                                int length = Encoding.ASCII.GetBytes(s, 0, s.Length, buffer, PERSISTENCE_ID_OFFSET);
+                // Save the data in a hashtable and then add tot he lsit
+                var ht = new Hashtable();
+                ht.Add("PersistenceId", PersistenceID);
+                ht.Add("Position", position);
+                ht.Add("Length", snapshotLength);
+                ht.Add("Deleted", deleted);
+                list.Add(ht);
 
-                                // TODO throw an exception on this
-                                if (length > MAX_ID_SIZE)
-                                    Console.WriteLine("Error: PersistenceId is too large");
-
-                                // Convert and store the length of the string 
-                                buffer[0] = (byte)(length >> 24);
-                                buffer[1] = (byte)(length >> 16);
-                                buffer[2] = (byte)(length >> 8);
-                                buffer[3] = (byte)(length);
-
-                                // Convert the position in the file to bytes
-                                buffer[length + PERSISTENCE_ID_OFFSET] = (byte)((long)(list[i]["Position"]) >> 56);
-                                buffer[length + PERSISTENCE_ID_OFFSET + 1] = (byte)((long)(list[i]["Position"]) >> 48);
-                                buffer[length + PERSISTENCE_ID_OFFSET + 2] = (byte)((long)(list[i]["Position"]) >> 40);
-                                buffer[length + PERSISTENCE_ID_OFFSET + 3] = (byte)((long)(list[i]["Position"]) >> 32);
-                                buffer[length + PERSISTENCE_ID_OFFSET + 4] = (byte)((long)(list[i]["Position"]) >> 24);
-                                buffer[length + PERSISTENCE_ID_OFFSET + 5] = (byte)((long)(list[i]["Position"]) >> 16);
-                                buffer[length + PERSISTENCE_ID_OFFSET + 6] = (byte)((long)(list[i]["Position"]) >> 8);
-                                buffer[length + PERSISTENCE_ID_OFFSET + 7] = (byte)((long)(list[i]["Position"]));
-
-                                // Convert the Deleted value to bytes
-                                bool deleted = ((bool)(list[i]["Deleted"]));
-                                buffer[length + PERSISTENCE_ID_OFFSET + 8] = (byte)(deleted ? 1 : 0);
-
-                                // Write to stream
-                                stream.Write(buffer, 0, length + PERSISTENCE_ID_OFFSET + 8 + 1);
-                                */
+                filePos = stream.Position;
             }
-
 
             // Close the file
             stream.Close();
 
             return list;
         }
-
-
-        /*
-        		protected override void CopyBytesImpl(long value, int bytes, byte[] buffer, int index)
-		{
-			int endOffset = index+bytes-1;
-			for (int i=0; i < bytes; i++)
-			{
-				buffer[endOffset-i] = unchecked((byte)(value&0xff));
-				value = value >> 8;
-			}
-		}
-		
-		/// <summary>
-		/// Returns a value built from the specified number of bytes from the given buffer,
-		/// starting at index.
-		/// </summary>
-		/// <param name="buffer">The data in byte array format</param>
-		/// <param name="startIndex">The first index to use</param>
-		/// <param name="bytesToConvert">The number of bytes to use</param>
-		/// <returns>The value built from the given bytes</returns>
-		protected override long FromBytes(byte[] buffer, int startIndex, int bytesToConvert)
-		{
-			long ret = 0;
-			for (int i=0; i < bytesToConvert; i++)
-			{
-				ret = unchecked((ret << 8) | buffer[startIndex+i]);
-			}
-			return ret;
-            */
-
-
-
-
-
-
-
-
-
-
 
     }
 }

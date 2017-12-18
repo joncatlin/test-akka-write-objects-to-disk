@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27004.2005
+VisualStudioVersion = 15.0.27130.2003
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SnapShotStore", "SnapShotStore\SnapShotStore.csproj", "{325B4CA8-EC9E-4E79-9B5C-56D46907D8E6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestDeserialize", "TestDeserialize\TestDeserialize.csproj", "{26B820F9-8952-49CF-BC57-C79F3856A9A3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestDeserialize", "TestDeserialize\TestDeserialize.csproj", "{26B820F9-8952-49CF-BC57-C79F3856A9A3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

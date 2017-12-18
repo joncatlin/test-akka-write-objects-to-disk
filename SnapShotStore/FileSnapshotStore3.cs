@@ -12,6 +12,8 @@ using Akka.Dispatch;
 using Akka.Serialization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Collections;
+using System.Threading;
 
 namespace SnapShotStore
 {
@@ -32,40 +34,42 @@ namespace SnapShotStore
     /// <param name="position">The position the snapshot resides in the file, as an offset from the 
     /// start of the file in bytes.</param>
     /// <param name="length">The length of the snapshot. Required when reading back the snapshot from the file</param>
+    /// <param name="deleted">Marks the map entry as being deleted and ready for reclamation</param>
     class SnapshotMapEntry
     {
-        public SnapshotMapEntry (SnapshotMetadata metadata, long position, int length)
+        public SnapshotMapEntry (SnapshotMetadata metadata, long position, int length, bool deleted)
         {
             Metadata = metadata;
             Position = position;
             Length = length;
+            Deleted = deleted;
         }
         public SnapshotMetadata Metadata { get; private set; }
         public long Position { get; private set; }
         public int Length { get; private set; }
-    }
+        public bool Deleted { get; private set; }
 
-
-    /// <summary>
-    /// This class holds the information stored in the snapshot file, for each snapshot that is saved.
-    /// </summary>
-    /// <param name="metadata">The metadata of the snapshot.</param>
-    /// <param name="snapshot">The content of the snapshot as presented to the Save method.</param>
-    class SnapshotFileEntry
-    {
-        public SnapshotFileEntry(SnapshotMetadata metadata, object snapshot)
+        public bool Equals (SnapshotMapEntry sme)
         {
-            Metadata = metadata;
-            Snapshot = snapshot;
+            if (!Metadata.Equals(sme.Metadata)) return false;
+            if (Position != sme.Position) return false;
+            if (Length != sme.Length) return false;
+            if (Deleted != sme.Deleted) return false;
+            return true;
         }
-        public SnapshotMetadata Metadata { get; private set; }
-        public object Snapshot { get; private set; }
     }
-
 
     class FileSnapshotStore3 : SnapshotStore
     {
 
+        // Constants for the offsets when reading and writing SFE's
+        const int MAX_SME_SIZE = 10000;
+        const int SIZE_OF_PERSISTENCE_ID_LENGTH = 4;
+        const int SIZE_OF_SEQ_NUM = 8;
+        const int SIZE_OF_DATE_TIME = 8;
+        const int SIZE_OF_SNAPSHOT_LENGTH = 4;
+        const int SIZE_OF_SNAPSHOT_POSITION = 8;
+        const int SIZE_OF_DELETED = 1;
 
         private ILoggingAdapter _log;
         private readonly int _maxLoadAttempts;
@@ -75,6 +79,8 @@ namespace SnapShotStore
         private readonly Akka.Serialization.Serialization _serialization;
         private string _defaultSerializer;
 
+        private Timer FlushTimer = null;
+        private bool FlushingFiles = false;
 
         //??
         private long _latestSnapshotSeqNr;
@@ -82,7 +88,9 @@ namespace SnapShotStore
         private readonly Akka.Serialization.Serialization _serializerEntry;
 
         private FileStream _writeStream = null;
+        private FileStream _writeSMEStream = null;
         private FileStream _readStream = null;
+        private FileStream _readSMEStream = null;
         private BinaryFormatter _formatter;
 
         // Default constants in case the coniguration item is missing
@@ -128,12 +136,16 @@ namespace SnapShotStore
             _log.Info("This actor name= {0}", Context.Self.Path);
 
             // Open the file that is the snapshot store
-            string filename = Path.Combine(_dir, "file-snapshot-store" + ActorNumber + ".bin");
+            string filename = Path.Combine(_dir, "file-snapshot-store-" + ActorNumber + ".bin");
+            string filenameSME = Path.Combine(_dir, "file-snapshot-map-" + ActorNumber + ".bin");
             _log.Info("Opening the snapshot store for this instance, filename = {0}", filename);
+            _log.Info("Opening the snapshot map for this instance, filename = {0}", filenameSME);
             try
             {
                 _writeStream = File.Open(filename, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+                _writeSMEStream = File.Open(filenameSME, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
                 _readStream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                _readSMEStream = File.Open(filenameSME, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             }
             catch (Exception e)
             {
@@ -223,30 +235,24 @@ namespace SnapShotStore
 
             try
             {
-                // Create the entry to be stored in the file that represents the snapshot
-                var sfe = new SnapshotFileEntry(metadata, snapshot);
-
                 // Serialize the object that describes the snapshot
-                var serializerSfe = _serialization.FindSerializerFor(sfe, _defaultSerializer);
-                var bytesSfe = serializerSfe.ToBinary(sfe);
-
-                // Convert the length of the file entry into a byte array of fixed length
-                // Max int = 2,147,483,647 or 10 digits
-                int sfeLength = bytesSfe.Length;
-                var bytesForLength = Encoding.ASCII.GetBytes(sfeLength.ToString("D10"));
-
-                // First write the length of the entry to the file, so the size to be read back is known first
-                _writeStream.Write(bytesForLength, 0, bytesForLength.Length);
+                var serializer = _serialization.FindSerializerFor(snapshot, _defaultSerializer);
+                var bytes = serializer.ToBinary(snapshot);
 
                 // Get the current location of the file stream so we know where the object is stored on the disk
                 long pos = _writeStream.Position;
 
-                // Write the Snapshot File Entry to disk
-                _writeStream.Write(bytesSfe, 0, bytesSfe.Length);
+                // Write the Snapshot to disk
+                _writeStream.Write(bytes, 0, bytes.Length);
 
                 // Save the information about the snapshot and where it is located in the file to the map
                 // Create a snapshot map entry to describe the snapshot
-                var sme = new SnapshotMapEntry(metadata, pos, sfeLength);
+                var sme = new SnapshotMapEntry(metadata, pos, bytes.Length, false);
+
+                // Write the SME to disk
+                WriteSME(_writeSMEStream, sme);
+
+                // Save the SME in the map
                 SnapshotMap.Add(metadata.PersistenceId, sme);
                 /*
                 // Figure out when to flush
@@ -283,18 +289,21 @@ namespace SnapShotStore
 
             // Find the id in the map to get the position within the file
             var sme = SnapshotMap[metadata.PersistenceId];
-            SnapshotFileEntry sfe = null;
+            SelectedSnapshot snapshot = null; 
             try
             {
                 // Position to the saved location for the object
                 _readStream.Seek(sme.Position, SeekOrigin.Begin);
 
                 // Get the snapshot file entry from the file
-                var sfeBuffer = new byte[sme.Length];
-                _readStream.Read(sfeBuffer, 0, sfeBuffer.Length);
-                var type = typeof(SnapshotFileEntry);
+                var buffer = new byte[sme.Length];
+                _readStream.Read(buffer, 0, sme.Length);
+                var type = typeof(object);
                 var serializer = _serialization.FindSerializerForType(type, _defaultSerializer);
-                sfe = (SnapshotFileEntry)serializer.FromBinary(sfeBuffer, type);
+
+                // Create the snapshot to return 
+               snapshot = new SelectedSnapshot(sme.Metadata, serializer.FromBinary(buffer, type));
+                _log.Debug("Snapshot found for id: {0}", metadata.PersistenceId);
             }
             catch (SerializationException e)
             {
@@ -302,8 +311,6 @@ namespace SnapShotStore
                 throw e;
             }
 
-            var snapshot = new SelectedSnapshot(metadata, sfe.Snapshot);
-            _log.Debug("Snapshot found for id: {0}", metadata.PersistenceId);
             return snapshot;
         }
 
@@ -332,54 +339,71 @@ namespace SnapShotStore
         }
 
 
+        private void FlushFiles(object info)
+        {
+            _log.Debug("FlushFiles() - flushing the files");
+            if (FlushingFiles) return;
+
+            try
+            {
+                // Prevent any other timer from performing the flush, incase the flush takes longer than the timer period
+                FlushingFiles = true;
+
+                // Flush the files to disk to ensure the information is saved. A normal flush only flushes to the OS buffers
+                _writeStream.Flush(true);
+                _writeSMEStream.Flush(true);
+
+            } catch (Exception e)
+            {
+                _log.Error("Error while flushing the files. Error: {0}\nStack trace: {1}", e.Message, e.StackTrace);
+            }
+            finally
+            {
+                // Enable another timer invocation to flush the files
+                FlushingFiles = false;
+            }
+        }
+
 
         protected override void PreStart()
         {
-            SnapshotMetadata metadata;
-            long pos = 0;
-            object obj;
-            var buffer = new byte[10]; // Max int is 10- digits long
+            _log.Debug("PreStart()");
 
-            _log.Debug("PreStart() - reading the snapshot file to build map");
+            // Initialize the Snapshot Map
+            InitializeSnaphotMap();
+
+            // Start the timer for flushing the files
+            FlushTimer = new Timer(FlushFiles, null, 0, 5000);
+
+        }
+
+        private void InitializeSnaphotMap()
+        {
+            _log.Debug("InitializeSnapshotMap() - reading the snapshot file to build map");
 
 
             // Ensure that the position in the stream is at the start of the file
-            _readStream.Seek(0, SeekOrigin.Begin);
+            _readSMEStream.Seek(0, SeekOrigin.Begin);
 
             // Loop through the snapshot store file and find all the previous objects written
             // add any objects found to the map
             // TODO must cope with corrupt files or missing items in a file. For example what happens
             // when the ID of the snapshot is writen but the snapshot object itself is missing or corrupt
-            while (_readStream.Position < _readStream.Length)
+            while (_readSMEStream.Position < _readSMEStream.Length)
             {
                 try
                 {
-                    // Read the length of the snapshot file entry that follows
-                    _readStream.Read(buffer, 0, buffer.Length);
-                    string lengthString = Encoding.ASCII.GetString(buffer);
-                    int length = Int32.Parse(lengthString);
-
-                    // Get the current location of the file stream so we know where the object is stored on the disk
-                    pos = _readStream.Position;
-
-                    // Get the snapshot file entry from the file
-                    var sfeBuffer = new byte[length];
-                    _readStream.Read(sfeBuffer, 0, sfeBuffer.Length);
-                    var type = typeof(SnapshotFileEntry);
-                    var serializer = _serialization.FindSerializerForType(type, _defaultSerializer);
-                    var sfe = (SnapshotFileEntry)serializer.FromBinary(sfeBuffer, type);
-
-                    // Save the information about the snapshot and where it is located in the file to the map
-                    var sme = new SnapshotMapEntry(sfe.Metadata, pos, length);
-                    if (!SnapshotMap.TryAdd(sfe.Metadata.PersistenceId, sme))
+                    // Get the next Snapshot Map Entry from the file
+                    // TODO rather than override the existing sme, create a sorted list to save them in.
+                    // This will aid in the snapshot selection criteria
+                    var sme = ReadSME(_readSMEStream);
+                    if (!SnapshotMap.TryAdd(sme.Metadata.PersistenceId, sme))
                     {
-                        SnapshotMap.Remove(sfe.Metadata.PersistenceId);
-                        SnapshotMap.Add(sfe.Metadata.PersistenceId, sme);
+                        SnapshotMap.Remove(sme.Metadata.PersistenceId);
+                        SnapshotMap.Add(sme.Metadata.PersistenceId, sme);
                     }
 
-                    _log.Debug("PreStart() - read metadata from file: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", sfe.Metadata, sfe.Metadata.Timestamp);
-
-
+                    _log.Debug("PreStart() - read metadata from file: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", sme.Metadata, sme.Metadata.Timestamp);
                 }
                 catch (SerializationException e)
                 {
@@ -395,10 +419,139 @@ namespace SnapShotStore
             _log.Debug("PostStop() - flushing and closing the file");
 
             // Close the file and ensure that everything is flushed correctly
-            _writeStream.Flush();
+            _writeStream.Flush(true);
+            _writeSMEStream.Flush(true);
             _writeStream.Close();
+            _writeSMEStream.Close();
             _readStream.Close();
 
+        }
+
+        // TODO change back to private after the test
+        private void WriteSME(FileStream stream, SnapshotMapEntry sme)
+        {
+            var buffer = new byte[MAX_SME_SIZE + SIZE_OF_SEQ_NUM + SIZE_OF_DATE_TIME + SIZE_OF_SNAPSHOT_LENGTH + SIZE_OF_SNAPSHOT_POSITION + SIZE_OF_DELETED];
+
+            // Convert the PersistenceId to bytes and store them in the buffer, leaving space at the beginning to store its length
+            int length = Encoding.ASCII.GetBytes(
+                sme.Metadata.PersistenceId, 0, sme.Metadata.PersistenceId.Length, buffer, SIZE_OF_PERSISTENCE_ID_LENGTH);
+
+            // TODO throw an exception on this
+            if (length > buffer.Length)
+                Console.WriteLine("Error: PersistenceId is too large");
+
+            // Convert and store the length of the string 
+            buffer[0] = (byte)(length >> 24);
+            buffer[1] = (byte)(length >> 16);
+            buffer[2] = (byte)(length >> 8);
+            buffer[3] = (byte)(length);
+
+            // Convert the sequence number of the snapshot
+            int offset = length + SIZE_OF_PERSISTENCE_ID_LENGTH;
+            buffer[offset] = (byte)((long)(sme.Metadata.SequenceNr) >> 56);
+            buffer[offset + 1] = (byte)((long)(sme.Metadata.SequenceNr) >> 48);
+            buffer[offset + 2] = (byte)((long)(sme.Metadata.SequenceNr) >> 40);
+            buffer[offset + 3] = (byte)((long)(sme.Metadata.SequenceNr) >> 32);
+            buffer[offset + 4] = (byte)((long)(sme.Metadata.SequenceNr) >> 24);
+            buffer[offset + 5] = (byte)((long)(sme.Metadata.SequenceNr) >> 16);
+            buffer[offset + 6] = (byte)((long)(sme.Metadata.SequenceNr) >> 8);
+            buffer[offset + 7] = (byte)((long)(sme.Metadata.SequenceNr));
+
+            // Convert and store the timestamp of the snapshot
+            long datetime = sme.Metadata.Timestamp.ToBinary();
+            offset += SIZE_OF_SEQ_NUM;
+            buffer[offset] = (byte)((long)(datetime) >> 56);
+            buffer[offset + 1] = (byte)((long)(datetime) >> 48);
+            buffer[offset + 2] = (byte)((long)(datetime) >> 40);
+            buffer[offset + 3] = (byte)((long)(datetime) >> 32);
+            buffer[offset + 4] = (byte)((long)(datetime) >> 24);
+            buffer[offset + 5] = (byte)((long)(datetime) >> 16);
+            buffer[offset + 6] = (byte)((long)(datetime) >> 8);
+            buffer[offset + 7] = (byte)((long)(datetime));
+
+            // Convert and store the position of the snapshot in the snapshot file
+            long position = sme.Position;
+            offset += SIZE_OF_DATE_TIME;
+            buffer[offset] = (byte)((long)(position) >> 56);
+            buffer[offset + 1] = (byte)((long)(position) >> 48);
+            buffer[offset + 2] = (byte)((long)(position) >> 40);
+            buffer[offset + 3] = (byte)((long)(position) >> 32);
+            buffer[offset + 4] = (byte)((long)(position) >> 24);
+            buffer[offset + 5] = (byte)((long)(position) >> 16);
+            buffer[offset + 6] = (byte)((long)(position) >> 8);
+            buffer[offset + 7] = (byte)((long)(position));
+
+
+            // Convert and store the length of the snapshot
+            int snapLength = sme.Length;
+            offset += SIZE_OF_SNAPSHOT_POSITION;
+            buffer[offset] = (byte)((int)(snapLength) >> 24);
+            buffer[offset + 1] = (byte)((int)(snapLength) >> 16);
+            buffer[offset + 2] = (byte)((int)(snapLength) >> 8);
+            buffer[offset + 3] = (byte)((int)(snapLength));
+
+            // Convert and store the deleted marker that denotes if this snapshot is deleted
+            offset += SIZE_OF_SNAPSHOT_LENGTH;
+            buffer[offset] = (byte)((byte)(sme.Deleted ? 1 : 0));
+
+            // Write to stream
+            stream.Write(buffer, 0, offset + 1);
+        }
+
+
+        // TODO change back to private after the test
+        private SnapshotMapEntry ReadSME(FileStream stream)
+        {
+            // Get the Snapshot Map Entry attributes from the file
+            var lengthBuffer = new byte[SIZE_OF_PERSISTENCE_ID_LENGTH];
+            var buffer = new byte[MAX_SME_SIZE + SIZE_OF_SEQ_NUM + SIZE_OF_DATE_TIME + SIZE_OF_SNAPSHOT_LENGTH + SIZE_OF_SNAPSHOT_POSITION + SIZE_OF_DELETED];
+
+            // Determine the size of the PersistenceId
+            stream.Read(lengthBuffer, 0, lengthBuffer.Length);
+            int length = (lengthBuffer[0] << 24 | (lengthBuffer[1] & 0xFF) << 16 | (lengthBuffer[2] & 0xFF) << 8 | (lengthBuffer[3] & 0xFF));
+
+            // Get the PersistenceID string from the file
+            var bytesToRead = length + SIZE_OF_SEQ_NUM + SIZE_OF_DATE_TIME + SIZE_OF_SNAPSHOT_POSITION + SIZE_OF_SNAPSHOT_LENGTH + SIZE_OF_DELETED;
+            var bytesRead = stream.Read(buffer, 0, bytesToRead);
+            var persistenceId = Encoding.ASCII.GetString(buffer, 0, length);
+
+            int offset = length;
+            long sequenceNum = buffer[offset++] << 56 |
+                (buffer[offset++] & 0xFF) << 48 |
+                (buffer[offset++] & 0xFF) << 40 |
+                (buffer[offset++] & 0xFF) << 32 |
+                (buffer[offset++] & 0xFF) << 24 |
+                (buffer[offset++] & 0xFF) << 16 |
+                (buffer[offset++] & 0xFF) << 8 |
+                (buffer[offset++] & 0xFF);
+
+            long datetime = buffer[offset++] << 56 |
+                (buffer[offset++] & 0xFF) << 48 |
+                (buffer[offset++] & 0xFF) << 40 |
+                (buffer[offset++] & 0xFF) << 32 |
+                (buffer[offset++] & 0xFF) << 24 |
+                (buffer[offset++] & 0xFF) << 16 |
+                (buffer[offset++] & 0xFF) << 8 |
+                (buffer[offset++] & 0xFF);
+
+            long position = buffer[offset++] << 56 |
+                (buffer[offset++] & 0xFF) << 48 |
+                (buffer[offset++] & 0xFF) << 40 |
+                (buffer[offset++] & 0xFF) << 32 |
+                (buffer[offset++] & 0xFF) << 24 |
+                (buffer[offset++] & 0xFF) << 16 |
+                (buffer[offset++] & 0xFF) << 8 |
+                (buffer[offset++] & 0xFF);
+
+            int snapshotLength = 
+                (buffer[offset++] & 0xFF) << 24 |
+                (buffer[offset++] & 0xFF) << 16 |
+                (buffer[offset++] & 0xFF) << 8 |
+                (buffer[offset++] & 0xFF);
+    
+            bool deleted = (buffer[offset++] == 1) ? true : false;
+
+            return new SnapshotMapEntry(new SnapshotMetadata(persistenceId, sequenceNum, DateTime.FromBinary(datetime)), position, snapshotLength, deleted);
         }
 
     }

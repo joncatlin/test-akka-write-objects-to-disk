@@ -72,36 +72,14 @@ namespace SnapShotStore
         }
 
 
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        public bool Equals (Account acc)
         {
-            info.AddValue("AccountID", AccountID);
-            info.AddValue("CompanyIDCustomerID", CompanyIDCustomerID);
-            info.AddValue("AccountTypeID", AccountTypeID);
-            info.AddValue("PrimaryAccountCodeID", PrimaryAccountCodeID);
-            info.AddValue("PortfolioID", PortfolioID);
-            info.AddValue("ContractDate", ContractDate);
-            info.AddValue("DelinquencyHistory", DelinquencyHistory);
-            info.AddValue("LastPaymentAmount", LastPaymentAmount);
-            info.AddValue("LastPaymentDate", LastPaymentDate);
-            info.AddValue("SetupDate", SetupDate);
-            info.AddValue("CouponNumber", CouponNumber);
-            info.AddValue("AlternateAccountNumber", AlternateAccountNumber);
-            info.AddValue("Desc1", Desc1);
-            info.AddValue("Desc2", Desc2);
-            info.AddValue("Desc3", Desc3);
-            info.AddValue("ConversionAccountID", ConversionAccountID);
-            info.AddValue("SecurityQuestionsAnswered", SecurityQuestionsAnswered);
-            info.AddValue("LegalName", LegalName);
-            info.AddValue("RandomText0", RandomText0);
-            info.AddValue("RandomText1", RandomText1);
-            info.AddValue("RandomText2", RandomText2);
-            info.AddValue("RandomText3", RandomText3);
-            info.AddValue("RandomText4", RandomText4);
-            info.AddValue("RandomText5", RandomText5);
-            info.AddValue("RandomText6", RandomText6);
-            info.AddValue("RandomText7", RandomText7);
-            info.AddValue("RandomText8", RandomText8);
-            info.AddValue("RandomText9", RandomText9);
+            // Compare only a few things
+            if (!AccountID.Equals(acc.AccountID)) return false;
+            if (!CouponNumber.Equals(acc.CouponNumber)) return false;
+            if (!RandomText0.Equals(acc.RandomText0)) return false;
+
+            return true;
         }
     }
 

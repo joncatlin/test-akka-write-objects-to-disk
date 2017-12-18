@@ -20,6 +20,7 @@ namespace SnapShotStore
 
         static void Main(string[] args)
         {
+            int NUM_ACTORS = 150000;
 
             // Get the configuration of the akka system
             var config = ConfigurationFactory.ParseString(GetConfiguration());
@@ -27,26 +28,20 @@ namespace SnapShotStore
             // Create the container for all the actors
             var actorSystem = ActorSystem.Create("csl-arch-poc", config);
 
-
+            // Create the accounts
+            
+            List<Account> accounts = CreateAccounts(NUM_ACTORS);
 
             // Create the actors
-            int NUM_ACTORS = 10;
             IActorRef[] irefs = new IActorRef[NUM_ACTORS];
             for (int i=0; i < NUM_ACTORS; i++)
             {
-                var acc = new Hashtable
-                {
-                    ["AccountID"] = i.ToString(),
-                    ["Name"] = "Jon Catlin",
-                    ["Description"] = "This is a description",
-                    ["Age"] = 34
-                };
-                Props testActorProps = Props.Create(() => new TestActor(acc));
+                Props testActorProps = Props.Create(() => new TestActor(accounts[i]));
                 irefs[i] = actorSystem.ActorOf(testActorProps, "testActor"+i);
             }
 
-            // Wait 5 seconds for things to calm down
-            System.Threading.Thread.Sleep(5000);
+            Console.WriteLine("Hit return whenready to start the test");
+            Console.ReadLine();
 
             // Start the timer to measure how long it takes to complete the test
             Console.WriteLine("Starting the test");
@@ -70,8 +65,14 @@ namespace SnapShotStore
                 ts.Milliseconds / 10);
             Console.WriteLine("RunTime for telling the actors" + elapsedTime);
 
+            Console.WriteLine("Hit return to terminate AKKA");
+            Console.ReadLine();
+
             // Wait until actor system terminated
-            actorSystem.WhenTerminated.Wait();
+            actorSystem.Terminate();
+
+            Console.WriteLine("Hit return to terminate program");
+            Console.ReadLine();
 
         }
 
@@ -80,8 +81,8 @@ namespace SnapShotStore
         {
             return @"
                 akka {  
-                    stdout-loglevel = DEBUG
-                    loglevel = DEBUG
+                    stdout-loglevel = ERROR
+                    loglevel = ERROR
                     log-config-on-start = on        
                 }
 
@@ -108,7 +109,46 @@ namespace SnapShotStore
 
 
 
+        static void TestSMEs()
+        {
+            /*
+            // Create the files to test writing and reading the SME's
+            FileStream writeSMEStream = File.Open(@"c:\temp\smetest.bin", FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+            FileStream readSMEStream = File.Open(@"c:\temp\smetest.bin", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
+
+            // Create the accounts to be used in the test
+            List<Account> list = CreateAccounts();
+            List<SnapshotMapEntry> smeList = new List<SnapshotMapEntry>(list.Count);
+
+            // Write some entries
+            for (int i = 0; i < list.Count; i++)
+            {
+                SnapshotMapEntry sme = new SnapshotMapEntry(new Akka.Persistence.SnapshotMetadata(list[i].AccountID, list[i].PortfolioID), list[i].PortfolioID * 10, list[i].PortfolioID * 100, (i % 2 == 0) ? true : false);
+                FileSnapshotStore3.WriteSME(writeSMEStream, sme);
+                smeList.Add(sme);
+            }
+
+            writeSMEStream.Flush(true);
+
+            // Read some entries
+            List<SnapshotMapEntry> readSMEList = new List<SnapshotMapEntry>(list.Count);
+            for (int i = 0; i < list.Count; i++)
+            {
+                var temp = FileSnapshotStore3.ReadSME(readSMEStream);
+                readSMEList.Add(temp);
+            }
+
+            // Compare them to ensure they are identical
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (!smeList[i].Equals(readSMEList[i]))
+                {
+                    Console.WriteLine($"Written and Read SME's are not equal at index: {0}", i);
+                }
+            }
+            */
+        }
 
 
 
@@ -123,7 +163,7 @@ namespace SnapShotStore
             ConcurrentQueue<Account> cq = new ConcurrentQueue<Account>();
 
             // Create the accounts to be used in the test
-            createAccounts(cq);
+            CreateAccounts(1);
 
             // Start the timer to measure how long it takes to complete the test
             Console.WriteLine("Starting the test");
@@ -245,21 +285,20 @@ namespace SnapShotStore
             Console.WriteLine("Finished file " + filename + ", counter=" + counter);
         }
 
-        static void createAccounts(ConcurrentQueue<Account> cq)
+
+        static List<Account> CreateAccounts(int limit)
         {
-/*
             Console.WriteLine("Creating the accounts");
+            int counter = 0;
+            string line;
+            List<Account> list = new List<Account>(limit);
 
             try
             {
 
-                int counter = 0;
-                string line;
-                int limit = 120000;
-
                 // Read the file and display it line by line.  
                 System.IO.StreamReader file =
-                    new System.IO.StreamReader(@"C:\Users\jcatlin.CSC\Documents\Development\VisualStudioWorkspace\cad-create-accounts\datagen.txt");
+                    new System.IO.StreamReader(@"C:\temp\datagen.bin");
                 while ((line = file.ReadLine()) != null)
                 {
                     if (counter == 0)
@@ -300,13 +339,13 @@ namespace SnapShotStore
                     account.RandomText9 = Guid.NewGuid() + "SOme random lot of text that is front and ended with a guid to make it uique and fairly long so it taxes the actor creation mechanism to determine if it takes too long" + Guid.NewGuid();
 
                     // Store the Account in the List
-                    cq.Enqueue(account);
+                    list.Add(account);
 
                     if (counter > limit + 1) break;
                     counter++;
                 }
 
-//                file.Close();
+                file.Close();
 
             }
             catch (Exception e)
@@ -315,7 +354,7 @@ namespace SnapShotStore
             }
 
             Console.WriteLine("Finished creating the accounts");
-*/
+            return list;
         }
 
         
