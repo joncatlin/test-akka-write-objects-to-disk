@@ -86,6 +86,7 @@ namespace SnapShotStore
         private Timer FlushTimer = null;
         private bool FlushingFiles = false;
 
+        private int _currentStreamId = 0;
         //??
         private long _latestSnapshotSeqNr;
 
@@ -93,7 +94,6 @@ namespace SnapShotStore
 
         private FileStream _writeStream = null;
         private FileStream _writeSMEStream = null;
-        private FileStream _readStream = null;
         private FileStream _readSMEStream = null;
         private BinaryFormatter _formatter;
 
@@ -101,18 +101,20 @@ namespace SnapShotStore
         private const int NUM_ACTORS = 4;
         private const int MAX_SNAPHOT_SIZE = 40000;     // Maximum size for an item to be saved as a snapshot
 
-        private static int NumActors = NUM_ACTORS;
         private int _maxSnapshotSize = MAX_SNAPHOT_SIZE;
+        private const int NUM_READ_THREADS = 4;
 
         // Create the map to the items held in the snapshot store
         private const int INITIAL_SIZE = 10000;
         private const int ONE_THREAD = 1;
-        private Dictionary<string, SnapshotMapEntry> SnapshotMap = new Dictionary<string, SnapshotMapEntry>(INITIAL_SIZE);
+        private ConcurrentDictionary<string, SnapshotMapEntry> SnapshotMap = new ConcurrentDictionary<string, SnapshotMapEntry>(ONE_THREAD, INITIAL_SIZE);
 
         // The mechanism to allow multiple copies of the class to work alongside each other without
         // overlapping on which actor stores which snapshot
         private readonly int ActorNumber;
 
+        // Structure to hold the read streams, one per read thread
+        private FileStream[] _readStreams = new FileStream[NUM_READ_THREADS];
 
         public FileSnapshotStore3()
         {
@@ -141,15 +143,25 @@ namespace SnapShotStore
             _log.Info("This actor name= {0}", Context.Self.Path);
 
             // Open the file that is the snapshot store
+
+
             string filename = Path.Combine(_dir, "file-snapshot-store-" + ActorNumber + ".bin");
             string filenameSME = Path.Combine(_dir, "file-snapshot-map-" + ActorNumber + ".bin");
             _log.Info("Opening the snapshot store for this instance, filename = {0}", filename);
             _log.Info("Opening the snapshot map for this instance, filename = {0}", filenameSME);
+
+            // Open the various streams to the two files used to store the information about the snapshots
             try
             {
                 _writeStream = File.Open(filename, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+
+                // Open a group of streams, one per read thread
+                for (int i = 0; i < NUM_READ_THREADS; i++)
+                {
+                    _readStreams[i] = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                }
+
                 _writeSMEStream = File.Open(filenameSME, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
-                _readStream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 _readSMEStream = File.Open(filenameSME, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             }
             catch (Exception e)
@@ -211,10 +223,28 @@ namespace SnapShotStore
             // Create an empty SnapshotMetadata
             SnapshotMetadata metadata = new SnapshotMetadata(persistenceId, -1);
 
-            return RunWithStreamDispatcher(() => Load(metadata));
+            // Pick a read stream to use
+            int streamId = getReadStream();
+
+            return RunWithStreamDispatcher(() => Load(streamId, metadata));
         }
 
 
+        /// <summary>
+        /// Finds the requested snapshot in the file and returns it.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        private int getReadStream()
+        {
+            if (_currentStreamId == NUM_READ_THREADS - 1)
+            {
+                _currentStreamId = 0;
+                return _currentStreamId;
+            } else
+            {
+                return ++_currentStreamId;
+            }
+        }
 
         /// <summary>
         /// Stores the snapshot in the file asdynchronously
@@ -264,13 +294,16 @@ namespace SnapShotStore
                 WriteSME(_writeSMEStream, sme);
 
                 // Save the SME in the map
-                if (!SnapshotMap.TryAdd(metadata.PersistenceId, sme))
+                if (!SnapshotMap.TryGetValue(metadata.PersistenceId, out SnapshotMapEntry currentValue))
                 {
-                    SnapshotMap.Remove(sme.Metadata.PersistenceId);
-                    SnapshotMap.Add(sme.Metadata.PersistenceId, sme);
+                    // Does not exist so add
+                    SnapshotMap.TryAdd(sme.Metadata.PersistenceId, sme);
                 }
-
-                _writeStream.Flush();
+                else
+                {
+                    // Exists so update
+                    SnapshotMap.TryUpdate(sme.Metadata.PersistenceId, sme, currentValue);
+                }
             }
             catch (SerializationException e)
             {
@@ -286,23 +319,24 @@ namespace SnapShotStore
         /// Finds the requested snapshot in the file and returns it.
         /// </summary>
         [MethodImpl(MethodImplOptions.Synchronized)]
-        private SelectedSnapshot Load(SnapshotMetadata metadata)
+        private SelectedSnapshot Load(int streamId, SnapshotMetadata metadata)
         {
             _log.Debug("Load() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
 
-            if (!SnapshotMap.ContainsKey(metadata.PersistenceId)) return null;
+            // Get the snapshot map entry to locate where in the file the snapshot is stored
+            if (!SnapshotMap.TryGetValue(metadata.PersistenceId, out SnapshotMapEntry sme)) return null;
 
             // Find the id in the map to get the position within the file
-            var sme = SnapshotMap[metadata.PersistenceId];
-            SelectedSnapshot snapshot = null; 
+            SelectedSnapshot snapshot = null;
+            Monitor.Enter(_readStreams[streamId]);
             try
             {
                 // Position to the saved location for the object
-                _readStream.Seek(sme.Position, SeekOrigin.Begin);
+                _readStreams[streamId].Seek(sme.Position, SeekOrigin.Begin);
 
                 // Get the snapshot file entry from the file
                 var buffer = new byte[sme.Length];
-                _readStream.Read(buffer, 0, sme.Length);
+                _readStreams[streamId].Read(buffer, 0, sme.Length);
                 var type = typeof(object);
                 var serializer = _serialization.FindSerializerForType(type, _defaultSerializer);
 
@@ -314,6 +348,9 @@ namespace SnapShotStore
             {
                 _log.Error("Failed to deserialize. Reason: {0} at {1}", e.Message, e.StackTrace);
                 throw e;
+            } finally
+            {
+                Monitor.Exit(_readStreams[streamId]);
             }
 
             return snapshot;
@@ -402,10 +439,17 @@ namespace SnapShotStore
                     // TODO rather than override the existing sme, create a sorted list to save them in.
                     // This will aid in the snapshot selection criteria
                     var sme = ReadSME(_readSMEStream);
-                    if (!SnapshotMap.TryAdd(sme.Metadata.PersistenceId, sme))
+
+                    // Save the SME in the map
+                    if (!SnapshotMap.TryGetValue(sme.Metadata.PersistenceId, out SnapshotMapEntry currentValue))
                     {
-                        SnapshotMap.Remove(sme.Metadata.PersistenceId);
-                        SnapshotMap.Add(sme.Metadata.PersistenceId, sme);
+                        // Does not exist so add
+                        SnapshotMap.TryAdd(sme.Metadata.PersistenceId, sme);
+                    }
+                    else
+                    {
+                        // Exists so update
+                        SnapshotMap.TryUpdate(sme.Metadata.PersistenceId, sme ,currentValue);
                     }
 
                     _log.Debug("PreStart() - read metadata from file: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", sme.Metadata, sme.Metadata.Timestamp);
@@ -423,12 +467,18 @@ namespace SnapShotStore
         {
             _log.Debug("PostStop() - flushing and closing the file");
 
+            // TODO stop the scheduled flush process
+
             // Close the file and ensure that everything is flushed correctly
             _writeStream.Flush(true);
             _writeSMEStream.Flush(true);
             _writeStream.Close();
             _writeSMEStream.Close();
-            _readStream.Close();
+
+            foreach(FileStream stream in _readStreams)
+            {
+                stream.Close();
+            }
 
         }
 
