@@ -64,6 +64,7 @@ namespace SnapShotStore
     {
         // Counters for debug
         long _loadasync = 0;
+        long _saveasync = 0;
 
         // Constants for the offsets when reading and writing SFE's
         const int MAX_SME_SIZE = 10000;
@@ -220,6 +221,9 @@ namespace SnapShotStore
         /// </summary>
         protected override Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
+            _saveasync++;
+            if (_saveasync % 1000 == 0) _log.Info("SaveAsync() - count of calls={0}", _saveasync);
+
             _log.Debug("SaveAsync() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
 
             return RunWithStreamDispatcher(() =>
