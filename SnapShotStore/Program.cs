@@ -20,7 +20,7 @@ namespace SnapShotStore
 
         static void Main(string[] args)
         {
-            int NUM_ACTORS = 150000;
+            int NUM_ACTORS = 10000;
 
             // Get the configuration of the akka system
             var config = ConfigurationFactory.ParseString(GetConfiguration());
@@ -81,8 +81,8 @@ namespace SnapShotStore
         {
             return @"
                 akka {  
-                    stdout-loglevel = ERROR
-                    loglevel = ERROR
+                    stdout-loglevel = INFO
+                    loglevel = INFO
                     log-config-on-start = on        
                 }
 

@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Collections;
 using System.Threading;
+using System.Collections.Concurrent;
 
 namespace SnapShotStore
 {
@@ -61,6 +62,8 @@ namespace SnapShotStore
 
     class FileSnapshotStore3 : SnapshotStore
     {
+        // Counters for debug
+        long _loadasync = 0;
 
         // Constants for the offsets when reading and writing SFE's
         const int MAX_SME_SIZE = 10000;
@@ -102,6 +105,7 @@ namespace SnapShotStore
 
         // Create the map to the items held in the snapshot store
         private const int INITIAL_SIZE = 10000;
+        private const int ONE_THREAD = 1;
         private Dictionary<string, SnapshotMapEntry> SnapshotMap = new Dictionary<string, SnapshotMapEntry>(INITIAL_SIZE);
 
         // The mechanism to allow multiple copies of the class to work alongside each other without
@@ -198,6 +202,9 @@ namespace SnapShotStore
         /// </summary>
         protected override Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
+            _loadasync++;
+            if (_loadasync % 1000 == 0) _log.Info("LoadAsync() - count of calls={0}", _loadasync);
+
             _log.Debug("LoadAsync() -persistenceId: {0}", persistenceId);
 
             // Create an empty SnapshotMetadata
@@ -253,16 +260,12 @@ namespace SnapShotStore
                 WriteSME(_writeSMEStream, sme);
 
                 // Save the SME in the map
-                SnapshotMap.Add(metadata.PersistenceId, sme);
-                /*
-                // Figure out when to flush
-                // TODO flush the stream periodically
-                // PERFORMANCE - save any outstanding tasks until the flush
-                if (counter % 100 == 0)
+                if (!SnapshotMap.TryAdd(metadata.PersistenceId, sme))
                 {
-                    stream.Flush(true);
+                    SnapshotMap.Remove(sme.Metadata.PersistenceId);
+                    SnapshotMap.Add(sme.Metadata.PersistenceId, sme);
                 }
-               */
+
                 _writeStream.Flush();
             }
             catch (SerializationException e)
@@ -283,8 +286,6 @@ namespace SnapShotStore
         {
             _log.Debug("Load() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
 
-            // Find the snapshot that matches the criteria or return null
-            // TODO Implement the mechanism to match the criteria
             if (!SnapshotMap.ContainsKey(metadata.PersistenceId)) return null;
 
             // Find the id in the map to get the position within the file

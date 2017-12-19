@@ -64,12 +64,12 @@ namespace SnapShotStore
 
         private void SnapshotSuccess(SaveSnapshotSuccess cmd)
         {
-            _log.Info("Processing SnapShotSuccess command, ID={0}", Acc.AccountID);
+            _log.Debug("Processing SnapShotSuccess command, ID={0}", Acc.AccountID);
         }
 
         private void SnapshotFailure(SaveSnapshotFailure cmd)
         {
-            _log.Info("Processing SnapShotFailure command, ID={0}, cause={1} \nStacktrace={2}", Acc.AccountID, cmd.Cause.Message, cmd.Cause.StackTrace);
+            _log.Debug("Processing SnapShotFailure command, ID={0}, cause={1} \nStacktrace={2}", Acc.AccountID, cmd.Cause.Message, cmd.Cause.StackTrace);
         }
 
         private void Process(SomeMessage msg)
@@ -77,17 +77,17 @@ namespace SnapShotStore
             // Modify the actor state 
             Acc.Desc1 = "Hi jon the time is: " + DateTime.Now;
             SaveSnapshot(Acc);
-            _log.Info("Processing SaveSnapshot in testactor, ID={0}", Acc.AccountID);
+            _log.Debug("Processing SaveSnapshot in testactor, ID={0}", Acc.AccountID);
         }
 
         private void Compare(CompareState state)
         {
-            _log.Info("Processing CompareState in testactor, ID={0}, the new desc is: {1}", Acc.AccountID, Acc.Desc1);
+            _log.Debug("Processing CompareState in testactor, ID={0}, the new desc is: {1}", Acc.AccountID, Acc.Desc1);
         }
 
         private void RecoverSnapshot(SnapshotOffer offer)
         {
-            _log.Info("Processing RecoverSnapshot, ID={0}", Acc.AccountID);
+            _log.Debug("Processing RecoverSnapshot, ID={0}", Acc.AccountID);
             /*
             Hashtable ht = (Hashtable)offer;
             foreach (string key in ((Hashtable)offer).Keys)
