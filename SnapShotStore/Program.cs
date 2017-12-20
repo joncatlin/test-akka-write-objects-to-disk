@@ -86,6 +86,11 @@ namespace SnapShotStore
                     log-config-on-start = on        
                 }
 
+                snapshot-dispatcher {
+                  type = Dispatcher
+                  throughput = 200
+                }
+
                 akka.persistence {
             	    snapshot-store {
 		                jonfile {
@@ -95,14 +100,15 @@ namespace SnapShotStore
                             dir = ""C:\\temp""
 
                             # dispatcher used to drive snapshot storage actor
-                            plugin-dispatcher = ""akka.actor.default-dispatcher""
+                            #plugin-dispatcher = ""akka.actor.default-dispatcher""
+                            plugin-dispatcher = ""snapshot-dispatcher""
                         }
                     }
                 }
 
                 akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
 
-                # akka.persistence.max-concurrent-recoveries = 50
+                akka.persistence.max-concurrent-recoveries = 100
             ";
         }
 

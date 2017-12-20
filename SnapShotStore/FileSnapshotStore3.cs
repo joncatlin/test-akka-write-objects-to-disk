@@ -64,6 +64,7 @@ namespace SnapShotStore
     {
         // Counters for debug
         long _loadasync = 0;
+        long _load = 0;
         long _saveasync = 0;
 
         // Constants for the offsets when reading and writing SFE's
@@ -231,7 +232,8 @@ namespace SnapShotStore
 
 
         /// <summary>
-        /// Finds the requested snapshot in the file and returns it.
+        /// Generates a streamId which is used to obtain the stream from the set of
+        /// read streams opened on the file
         /// </summary>
         [MethodImpl(MethodImplOptions.Synchronized)]
         private int getReadStream()
@@ -322,6 +324,9 @@ namespace SnapShotStore
 //        [MethodImpl(MethodImplOptions.Synchronized)]
         private SelectedSnapshot Load(int streamId, SnapshotMetadata metadata)
         {
+            _load++;
+            if (_load % 1000 == 0) _log.Info("Load() - count of calls={0}", _load);
+
             _log.Debug("Load() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
 
             // Get the snapshot map entry to locate where in the file the snapshot is stored
