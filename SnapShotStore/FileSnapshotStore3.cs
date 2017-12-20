@@ -236,6 +236,7 @@ namespace SnapShotStore
         [MethodImpl(MethodImplOptions.Synchronized)]
         private int getReadStream()
         {
+            // TODO fix this stuff. There is a better way to do this.
             if (_currentStreamId == NUM_READ_THREADS - 1)
             {
                 _currentStreamId = 0;
@@ -318,7 +319,7 @@ namespace SnapShotStore
         /// <summary>
         /// Finds the requested snapshot in the file and returns it.
         /// </summary>
-        [MethodImpl(MethodImplOptions.Synchronized)]
+//        [MethodImpl(MethodImplOptions.Synchronized)]
         private SelectedSnapshot Load(int streamId, SnapshotMetadata metadata)
         {
             _log.Debug("Load() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
@@ -341,7 +342,7 @@ namespace SnapShotStore
                 var serializer = _serialization.FindSerializerForType(type, _defaultSerializer);
 
                 // Create the snapshot to return 
-               snapshot = new SelectedSnapshot(sme.Metadata, serializer.FromBinary(buffer, type));
+                snapshot = new SelectedSnapshot(sme.Metadata, serializer.FromBinary(buffer, type));
                 _log.Debug("Snapshot found for id: {0}", metadata.PersistenceId);
             }
             catch (SerializationException e)
