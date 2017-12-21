@@ -20,7 +20,7 @@ namespace SnapShotStore
 
         static void Main(string[] args)
         {
-            int NUM_ACTORS = 10000;
+            int NUM_ACTORS = 150000;
 
             // Get the configuration of the akka system
             var config = ConfigurationFactory.ParseString(GetConfiguration());
@@ -91,22 +91,22 @@ namespace SnapShotStore
                   throughput = 200
                 }
 
-                akka.persistence {
-            	    snapshot-store {
-		                jonfile {
-			                # qualified type name of the File persistence snapshot actor
-            			    class = ""SnapShotStore.FileSnapshotStore3, SnapShotStore""
-                            max-load-attempts=19
-                            dir = ""C:\\temp""
+#                akka.persistence {
+#            	    snapshot-store {
+#		                jonfile {
+#			                # qualified type name of the File persistence snapshot actor
+#            			    class = ""SnapShotStore.FileSnapshotStore3, SnapShotStore""
+#                            max-load-attempts=19
+#                            dir = ""C:\\temp""
+#
+#                            # dispatcher used to drive snapshot storage actor
+#                            #plugin-dispatcher = ""akka.actor.default-dispatcher""
+#                            plugin-dispatcher = ""snapshot-dispatcher""
+#                        }
+#                    }
+#                }
 
-                            # dispatcher used to drive snapshot storage actor
-                            #plugin-dispatcher = ""akka.actor.default-dispatcher""
-                            plugin-dispatcher = ""snapshot-dispatcher""
-                        }
-                    }
-                }
-
-                akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
+#                akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
 
                 akka.persistence.max-concurrent-recoveries = 100
             ";
