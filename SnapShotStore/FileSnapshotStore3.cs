@@ -80,7 +80,6 @@ namespace SnapShotStore
         private readonly int _maxLoadAttempts;
         private readonly MessageDispatcher _streamDispatcher;
         private readonly string _dir;
-        private readonly ISet<SnapshotMetadata> _saving;
         private readonly Akka.Serialization.Serialization _serialization;
         private string _defaultSerializer;
 
@@ -88,10 +87,6 @@ namespace SnapShotStore
         private bool FlushingFiles = false;
 
         private int _currentStreamId = 0;
-        //??
-        private long _latestSnapshotSeqNr;
-
-        private readonly Akka.Serialization.Serialization _serializerEntry;
 
         private FileStream _writeStream = null;
         private FileStream _writeSMEStream = null;
@@ -109,10 +104,6 @@ namespace SnapShotStore
         private const int INITIAL_SIZE = 10000;
         private const int ONE_THREAD = 1;
         private ConcurrentDictionary<string, SnapshotMapEntry> SnapshotMap = new ConcurrentDictionary<string, SnapshotMapEntry>(ONE_THREAD, INITIAL_SIZE);
-
-        // The mechanism to allow multiple copies of the class to work alongside each other without
-        // overlapping on which actor stores which snapshot
-        private readonly int ActorNumber;
 
         // Structure to hold the read streams, one per read thread
         private FileStream[] _readStreams = new FileStream[NUM_READ_THREADS];
@@ -144,10 +135,8 @@ namespace SnapShotStore
             _log.Info("This actor name= {0}", Context.Self.Path);
 
             // Open the file that is the snapshot store
-
-
-            string filename = Path.Combine(_dir, "file-snapshot-store-" + ActorNumber + ".bin");
-            string filenameSME = Path.Combine(_dir, "file-snapshot-map-" + ActorNumber + ".bin");
+            string filename = Path.Combine(_dir, "file-snapshot-store.bin");
+            string filenameSME = Path.Combine(_dir, "file-snapshot-map.bin");
             _log.Info("Opening the snapshot store for this instance, filename = {0}", filename);
             _log.Info("Opening the snapshot map for this instance, filename = {0}", filenameSME);
 
@@ -427,7 +416,7 @@ namespace SnapShotStore
 
         private void InitializeSnaphotMap()
         {
-            _log.Debug("InitializeSnapshotMap() - reading the snapshot file to build map");
+            _log.Info("InitializeSnapshotMap() - STARTED reading the snapshot file to build map");
 
 
             // Ensure that the position in the stream is at the start of the file
@@ -466,14 +455,19 @@ namespace SnapShotStore
                     throw;
                 }
             }
+
+            _log.Info("InitializeSnapshotMap() - FINISHED reading the snapshot file to build map");
+
         }
 
 
         protected override void PostStop()
         {
+
             _log.Debug("PostStop() - flushing and closing the file");
 
-            // TODO stop the scheduled flush process
+            // Stop the scheduled flush process
+            FlushTimer.Dispose();
 
             // Close the file and ensure that everything is flushed correctly
             _writeStream.Flush(true);

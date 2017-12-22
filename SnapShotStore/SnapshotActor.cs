@@ -167,10 +167,6 @@ namespace SnapShotStore
 
         private void Initiailize()
         {
-            string id;
-            long pos;
-            object obj;
-
             // Loop through the snapshot store file and find all the previous objects written
             // add any objects found to the map
             while (stream.Position < stream.Length)

@@ -15,6 +15,10 @@ namespace SnapShotStore
     {
     }
 
+    public class DisplayState
+    {
+    }
+
 
     public class CompareState
     {
@@ -50,6 +54,13 @@ namespace SnapShotStore
             // Store the actor state 
             Acc = acc;
 
+            // Display the configuration for the dispatcher
+            // Get the configuration
+            Console.WriteLine("Name={0}", Context.Self.Path);
+
+            var config = Context.Dispatcher.Configurator.Config;
+
+
             // Recover
             Recover<SnapshotOffer>(offer => RecoverSnapshot(offer));
 
@@ -57,7 +68,7 @@ namespace SnapShotStore
             Command<SaveSnapshotSuccess>(cmd => SnapshotSuccess(cmd));
             Command<SaveSnapshotFailure>(cmd => SnapshotFailure(cmd));
             Command<SomeMessage>(msg => Process(msg));
-            Command<CompareState>(msg => Compare(msg));
+            Command<DisplayState>(msg => Display());
         }
 
 
@@ -80,20 +91,16 @@ namespace SnapShotStore
             _log.Debug("Processing SaveSnapshot in testactor, ID={0}", Acc.AccountID);
         }
 
-        private void Compare(CompareState state)
+        private void Display()
         {
             _log.Debug("Processing CompareState in testactor, ID={0}, the new desc is: {1}", Acc.AccountID, Acc.Desc1);
+            Console.WriteLine("PersistenceId={0}, desc={1}", Acc.AccountID, Acc.Desc1);
         }
 
         private void RecoverSnapshot(SnapshotOffer offer)
         {
             _log.Debug("Processing RecoverSnapshot, ID={0}", Acc.AccountID);
-            /*
-            Hashtable ht = (Hashtable)offer;
-            foreach (string key in ((Hashtable)offer).Keys)
-            {
-                Console.WriteLine(String.Format("{0}: {1}", key, offer[key]));
-            }*/
+            Acc = (Account)offer.Snapshot;
         }
 
 
