@@ -38,12 +38,12 @@ namespace SnapShotStore
 
         // The actor state to be persisted
         private Account Acc;
-
+        private string AccountId;
         public override string PersistenceId
         {
             get
             {
-                return (string)Acc.AccountID;
+                return (string)AccountId;
             }
         }
 
@@ -53,13 +53,29 @@ namespace SnapShotStore
 
             // Store the actor state 
             Acc = acc;
+            AccountId = acc.AccountID;
+            
+            Setup();
+        }
+
+        public TestActor(string accountId)
+        {
+            AccountId = accountId;
+            Setup();
+        }
+
+        private void Setup()
+        {
 
             // Display the configuration for the dispatcher
             // Get the configuration
-            Console.WriteLine("Name={0}", Context.Self.Path);
+//            Console.WriteLine("Name={0}", Context.Self.Path);
 
-            var config = Context.Dispatcher.Configurator.Config;
-
+//            var config = Context.Dispatcher.Configurator.Config;
+//            foreach (var item in config.AsEnumerable())
+//            {
+//                Console.WriteLine("Name={0}, Value={1}", item.Key, item.Value);
+//            }
 
             // Recover
             Recover<SnapshotOffer>(offer => RecoverSnapshot(offer));

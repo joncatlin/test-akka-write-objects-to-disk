@@ -91,7 +91,6 @@ namespace SnapShotStore
         private FileStream _writeStream = null;
         private FileStream _writeSMEStream = null;
         private FileStream _readSMEStream = null;
-        private BinaryFormatter _formatter;
 
         // Default constants in case the coniguration item is missing
         private const int NUM_ACTORS = 4;
@@ -110,39 +109,35 @@ namespace SnapShotStore
 
         public FileSnapshotStore3()
         {
-            _log = Context.GetLogger();
+            try { 
+                _log = Context.GetLogger();
 
-            // Create a binary formatter to convert the object into something that can be saved to a file
-            _formatter = new BinaryFormatter();
+                // Get the configuration
+                var config = Context.System.Settings.Config.GetConfig("akka.persistence.snapshot-store.jonfile");
+                _maxLoadAttempts = config.GetInt("max-load-attempts");
 
-            // Get the configuration
-            var config = Context.System.Settings.Config.GetConfig("akka.persistence.snapshot-store.jonfile");
-            _maxLoadAttempts = config.GetInt("max-load-attempts");
+                _streamDispatcher = Context.System.Dispatchers.Lookup(config.GetString("plugin-dispatcher"));
+                _dir = config.GetString("dir");
+                if (config.GetInt("max-snapshot-size") > 0)
+                {
+                    _maxSnapshotSize = config.GetInt("max-snapshot-size");
+                }
+                _log.Info("Max Snapshot Size in bytes = {0}", _maxSnapshotSize);
 
-            _streamDispatcher = Context.System.Dispatchers.Lookup(config.GetString("plugin-dispatcher"));
-            _dir = config.GetString("dir");
-            if (config.GetInt("max-snapshot-size") > 0)
-            {
-                _maxSnapshotSize = config.GetInt("max-snapshot-size");
-            }
-            _log.Info("Max Snapshot Size in bytes = {0}", _maxSnapshotSize);
+                _defaultSerializer = config.GetString("serializer");
+                _serialization = Context.System.Serialization;
 
-            _defaultSerializer = config.GetString("serializer");
-            _serialization = Context.System.Serialization;
+                // Log the configuration parameters
+                // TODO remove or use this, depending if we can figure out how to make a router group out of this actor
+                _log.Info("This actor name= {0}", Context.Self.Path);
 
-            // Log the configuration parameters
-            // TODO remove or use this, depending if we can figure out how to make a router group out of this actor
-            _log.Info("This actor name= {0}", Context.Self.Path);
+                // Open the file that is the snapshot store
+                string filename = Path.Combine(_dir, "file-snapshot-store.bin");
+                string filenameSME = Path.Combine(_dir, "file-snapshot-map.bin");
+                _log.Info("Opening the snapshot store for this instance, filename = {0}", filename);
+                _log.Info("Opening the snapshot map for this instance, filename = {0}", filenameSME);
 
-            // Open the file that is the snapshot store
-            string filename = Path.Combine(_dir, "file-snapshot-store.bin");
-            string filenameSME = Path.Combine(_dir, "file-snapshot-map.bin");
-            _log.Info("Opening the snapshot store for this instance, filename = {0}", filename);
-            _log.Info("Opening the snapshot map for this instance, filename = {0}", filenameSME);
-
-            // Open the various streams to the two files used to store the information about the snapshots
-            try
-            {
+                // Open the various streams to the two files used to store the information about the snapshots
                 _writeStream = File.Open(filename, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
 
                 // Open a group of streams, one per read thread
@@ -159,7 +154,7 @@ namespace SnapShotStore
                 _log.Error("Error opening the snapshot store file, error: {0}", e.StackTrace);
                 throw e;
             }
-        }
+        }       
 
         protected override Task DeleteAsync(SnapshotMetadata metadata)
         {

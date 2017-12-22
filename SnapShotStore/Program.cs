@@ -21,16 +21,24 @@ namespace SnapShotStore
         static void Main(string[] args)
         {
             int NUM_ACTORS=0;
+            string FILENAME = "";
+
             try
             {
                 NUM_ACTORS = Int32.Parse(Environment.GetEnvironmentVariable("NUM_ACTORS"));
                 Console.WriteLine("ENV NUM_ACTORS={0}", NUM_ACTORS);
+                FILENAME = Environment.GetEnvironmentVariable("FILENAME");
+                Console.WriteLine("ENV FILENAME={0}", FILENAME);
             }
             catch (Exception e)
             {
-                Console.WriteLine("ERROR trying to obtain value for Env var: ENV NUM_ACTORS. Exception msg={0}", e.Message);
-                NUM_ACTORS = 4;
+                Console.WriteLine("ERROR trying to obtain value for Env var: ENV NUM_ACTORS & FILENAME. Exception msg={0}", e.Message);
+                return;
             }
+
+            // TODO - Remove these items
+//            NUM_ACTORS = 12;
+//            FILENAME = @"c:\temp\datagen.bin";
 
             // Get the configuration of the akka system
             var config = ConfigurationFactory.ParseString(GetConfiguration());
@@ -38,67 +46,23 @@ namespace SnapShotStore
             // Create the containers for all the actors. Using multiple systems to see if startup time is reduced
             var actorSystem = ActorSystem.Create("csl-arch-poc1", config);
 
-            // Create the accounts
-            List<Account> accounts = CreateAccounts(NUM_ACTORS);
+            // Create the AccountGenertor actor
+            Props accountGeneratorActorProps = Props.Create(() => new AccountGenerator());
+            var agref = actorSystem.ActorOf(accountGeneratorActorProps, "AccountGenerator");
 
-            // Create the actors
-            IActorRef[] irefs = new IActorRef[NUM_ACTORS];
-            for (int i=0; i < NUM_ACTORS; i++)
-            {
-                Props testActorProps = Props.Create(() => new TestActor(accounts[i]));
-                // Spread the actors across the systems to see if we get better performance
-                irefs[i] = actorSystem.ActorOf(testActorProps);
-            }
+            // Generate the accounts
+            agref.Tell(new GenerateAccounts(FILENAME, NUM_ACTORS));
 
-            Console.WriteLine("Hit return to display actor state");
+            Console.WriteLine("Press return to send the created account actors a message causing them to save a snapshot");
             Console.ReadLine();
 
-            irefs[0].Tell(new DisplayState());
-            irefs[1].Tell(new DisplayState());
-            irefs[NUM_ACTORS - 2].Tell(new DisplayState());
-            irefs[NUM_ACTORS - 1].Tell(new DisplayState());
+            agref.Tell(new SendMsgs());
 
-            // Start the timer to measure how long it takes to complete the test
-            Console.WriteLine("Starting the test to persist actor state");
-            Stopwatch stopWatch = new Stopwatch();
-            stopWatch.Start();
-
-
-            // Send three msgs to see if the metadata seq number changes
-            for (int i = 0; i < NUM_ACTORS; i++)
-            {
-                irefs[i].Tell(new SomeMessage());
-            }
-
-            // Get the elapsed time as a TimeSpan value.
-            stopWatch.Stop();
-            TimeSpan ts = stopWatch.Elapsed;
-
-            // Format and display the TimeSpan value.
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}",
-                ts.Hours, ts.Minutes, ts.Seconds,
-                ts.Milliseconds / 10);
-            Console.WriteLine("RunTime for telling the actors" + elapsedTime);
-
-            Console.WriteLine("Hit return to cause some actors to print out some of their state. This is to check that their state has been saved and restored correctly");
-            Console.ReadLine();
-
-            irefs[0].Tell(new DisplayState());
-            irefs[1].Tell(new DisplayState());
-            irefs[NUM_ACTORS-2].Tell(new DisplayState());
-            irefs[NUM_ACTORS-1].Tell(new DisplayState());
-
-
-
-            Console.WriteLine("Hit return to terminate AKKA");
+            Console.WriteLine("Press return to terminate the system");
             Console.ReadLine();
 
             // Wait until actor system terminated
             actorSystem.Terminate();
-
-            Console.WriteLine("Hit return to terminate program");
-            Console.ReadLine();
-
         }
 
 
@@ -124,8 +88,8 @@ namespace SnapShotStore
 			                # qualified type name of the File persistence snapshot actor
             			    class = ""SnapShotStore.FileSnapshotStore3, SnapShotStore""
                             max-load-attempts=19
-#                            dir = ""/temp""
-                            dir = ""C:\\temp""
+                            dir = ""/temp""
+#                            dir = ""C:\\temp""
 
                             # dispatcher used to drive snapshot storage actor
                             #plugin-dispatcher = ""akka.actor.default-dispatcher""
@@ -136,24 +100,24 @@ namespace SnapShotStore
 
                 akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
 
-                akka.persistence.max-concurrent-recoveries = 100
+                akka.persistence.max-concurrent-recoveries = 500
+
+                # Dispatcher for the TestActors to see if this changes the performance
+                test-actor-dispatcher {
+                    type = ForkJoinDispatcher
+                    throughput = 10
+                    dedicated-thread-pool {
+                        thread-count = 10
+                        deadlock-timeout = 60s
+                        threadtype = background
+                    }
+                }
 
                 # Deployment configuration
                 akka.actor.deployment {
 
-                    # Dispatcher for the TestActors to see if this changes the performance
-                    test-actor-dispatcher {
-                        type = ForkJoinDispatcher
-                        throughput = 10
-                        dedicated-thread-pool {
-                            thread-count = 8
-                            deadlock-timeout = 0s
-                            threadtype = background
-                        }
-                    }
-
                     # Configuration for test-actor deployment
-                    ""/**"" {
+                    ""/AccountGenerator/*"" {
                         dispatcher = test-actor-dispatcher
                     }
                 }

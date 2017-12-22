@@ -36,6 +36,7 @@ WORKDIR /app
 COPY --from=build-env /app/out ./
 
 ENV NUM_ACTORS=1
+ENV FILENAME=""
 
 ENTRYPOINT ["dotnet", "SnapShotStore.dll"]
 
