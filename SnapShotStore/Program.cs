@@ -37,7 +37,7 @@ namespace SnapShotStore
             }
 
             // TODO - Remove these items
-//            NUM_ACTORS = 12;
+//            NUM_ACTORS = 1;
 //            FILENAME = @"c:\temp\datagen.bin";
 
             // Get the configuration of the akka system
@@ -70,8 +70,8 @@ namespace SnapShotStore
         {
             return @"
                 akka {  
-                    stdout-loglevel = ERROR
-                    loglevel = ERROR
+                    stdout-loglevel = INFO
+                    loglevel = INFO
                     log-config-on-start = on        
                 }
 
@@ -89,7 +89,7 @@ namespace SnapShotStore
             			    class = ""SnapShotStore.FileSnapshotStore3, SnapShotStore""
                             max-load-attempts=19
                             dir = ""/temp""
-#                            dir = ""C:\\temp""
+//                            dir = ""C:\\temp""
 
                             # dispatcher used to drive snapshot storage actor
                             #plugin-dispatcher = ""akka.actor.default-dispatcher""
@@ -107,7 +107,7 @@ namespace SnapShotStore
                     type = ForkJoinDispatcher
                     throughput = 10
                     dedicated-thread-pool {
-                        thread-count = 10
+                        thread-count = 2
                         deadlock-timeout = 60s
                         threadtype = background
                     }

@@ -60,6 +60,8 @@ namespace SnapShotStore
 
         public TestActor(string accountId)
         {
+            _log = Context.GetLogger();
+
             AccountId = accountId;
             Setup();
         }
@@ -115,8 +117,9 @@ namespace SnapShotStore
 
         private void RecoverSnapshot(SnapshotOffer offer)
         {
-            _log.Debug("Processing RecoverSnapshot, ID={0}", Acc.AccountID);
             Acc = (Account)offer.Snapshot;
+            AccountId = Acc.AccountID;
+            _log.Debug("Finished Processing RecoverSnapshot, ID={0}", Acc.AccountID);
         }
 
 
