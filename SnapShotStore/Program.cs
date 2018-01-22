@@ -32,13 +32,13 @@ namespace SnapShotStore
             }
             catch (Exception e)
             {
-                Console.WriteLine("ERROR trying to obtain value for Env var: ENV NUM_ACTORS & FILENAME. Exception msg={0}", e.Message);
-                return;
+                //Console.WriteLine("ERROR trying to obtain value for Env var: ENV NUM_ACTORS & FILENAME. Exception msg={0}", e.Message);
+                //return;
             }
 
             // TODO - Remove these items
-//            NUM_ACTORS = 1;
-//            FILENAME = @"c:\temp\datagen.bin";
+            NUM_ACTORS = 50000;
+            FILENAME = @"c:\temp\datagen.bin";
 
             // Get the configuration of the akka system
             var config = ConfigurationFactory.ParseString(GetConfiguration());
@@ -70,9 +70,22 @@ namespace SnapShotStore
         {
             return @"
                 akka {  
-                    stdout-loglevel = INFO
-                    loglevel = INFO
+                    stdout-loglevel = DEBUG
+                    loglevel = ERROR
                     log-config-on-start = on        
+#                    loggers = [""Akka.Logger.NLog.NLogLogger, Akka.Logger.NLog""]
+                }
+
+                actor
+                {
+                  debug
+                  {
+                    receive = on      # log any received message
+                    autoreceive = on  # log automatically received messages, e.g. PoisonPill
+                    lifecycle = on    # log actor lifecycle changes
+                    event-stream = on # log subscription changes for Akka.NET event stream
+                    unhandled = on    # log unhandled messages sent to actors
+                  }
                 }
 
                 # Dispatcher for the Snapshot file store
@@ -83,7 +96,15 @@ namespace SnapShotStore
 
                 # Persistence Plugin for SNAPSHOT
                 akka.persistence {
-            	    snapshot-store {
+                    journal {
+                        in-mem {
+                            class = ""Akka.Persistence.Journal.MemoryJournal, Akka.Persistence""
+                            # Dispatcher for the plugin actor.
+                            plugin - dispatcher = ""akka.actor.default-dispatcher""
+                        }
+                    }
+
+                snapshot-store {
 		                jonfile {
 			                # qualified type name of the File persistence snapshot actor
             			    class = ""SnapShotStore.FileSnapshotStore3, SnapShotStore""
@@ -99,6 +120,7 @@ namespace SnapShotStore
                 }
 
                 akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
+                akka.persistence.journal.plugin = ""akka.persistence.journal.in-mem""
 
                 akka.persistence.max-concurrent-recoveries = 500
 

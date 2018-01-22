@@ -38,7 +38,7 @@ namespace SnapShotStore
 
     class AccountGenerator : ReceivePersistentActor
     {
-        private ILoggingAdapter _log;
+        private readonly ILoggingAdapter _log = Logging.GetLogger(Context);
 
         // The actor state to be persisted
         private List<string> AccountList;
@@ -55,8 +55,6 @@ namespace SnapShotStore
 
         public AccountGenerator()
         {
-            _log = Context.GetLogger();
-
             // Recover
             Recover<SnapshotOffer>(offer => RecoverSnapshot(offer));
 
@@ -121,8 +119,15 @@ namespace SnapShotStore
 
         private void Generate(GenerateAccounts msg)
         {
-            // Create the accounts 
-            List<Account> accounts = CreateAccounts(msg);
+            List<Account> accounts = null;
+
+            if (AccountList.Count >= msg.NumAccountsToGenerate)
+            {
+                _log.Info("Generate - enough accounts already exist. AccountList.Count={0} NumAccountsToGenerate={1}", AccountList.Count, msg.NumAccountsToGenerate);
+            } else
+            {
+                _log.Info("Generate - generating accounts for {0} actors", AccountList.Count-msg.NumAccountsToGenerate);
+            }
 
             // Only create the actors that we need to
             int i;
@@ -141,6 +146,11 @@ namespace SnapShotStore
             _log.Info("Generate - started {0} previously created actors", i);
 
             // Create any new actors that are needed
+            if (i < msg.NumAccountsToGenerate)
+            {
+                accounts = CreateAccounts(msg);
+            }
+
             for (; i < msg.NumAccountsToGenerate; i++)
             {
                 Props testActorProps = Props.Create(() => new TestActor(accounts[i]));
@@ -220,6 +230,8 @@ namespace SnapShotStore
             int counter = 0;
             string line;
             List<Account> list = new List<Account>(msg.NumAccountsToGenerate);
+            Random rnd = new Random();
+
 
             try
             {
@@ -239,7 +251,7 @@ namespace SnapShotStore
                     }
 
                     string[] tokens = line.Split(',');
-                    Account account = new Account(tokens[0]);
+                    Account account = new Account(tokens[0] + "-" + counter);
 
                     account.CompanyIDCustomerID = tokens[1];
                     account.AccountTypeID = tokens[2];
@@ -268,10 +280,49 @@ namespace SnapShotStore
                     account.RandomText8 = Guid.NewGuid() + "SOme random lot of text that is front and ended with a guid to make it uique and fairly long so it taxes the actor creation mechanism to determine if it takes too long" + Guid.NewGuid();
                     account.RandomText9 = Guid.NewGuid() + "SOme random lot of text that is front and ended with a guid to make it uique and fairly long so it taxes the actor creation mechanism to determine if it takes too long" + Guid.NewGuid();
 
+                    // Every so often make a large account with a lot of data
+                    const string allowedChars = "ABCDEFGHJKLMNOPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz0123456789!@$?_-";
+                    if (counter % 10000 == 0)
+                    {
+                        _log.Debug("AccountGenerator - counter={0}", counter);
+
+                        // Populate a large dictionary
+                        account.LargeAccount1 = new Dictionary<string, string>();
+                        int size = rnd.Next(100000, 200000);
+                        for (int i = 0; i < size; i++)
+                        {
+                            int stringLength = rnd.Next(100, 1000);
+                            char[] chars = new char[stringLength];
+
+                            for (int j = 0; j < stringLength; j++)
+                                chars[j] = allowedChars[rnd.Next(0, allowedChars.Length)];
+
+                            account.LargeAccount1.Add(new string(chars)+i, "" + i);
+                        }
+
+                        // Populate a large list
+                        account.LargeAccount2 = new List<float>();
+                        size = rnd.Next(5000, 50000);
+                        for (int i = 0; i < size; i++)
+                        {
+                            var result = (rnd.NextDouble() * (Single.MaxValue - (double)Single.MinValue)) + Single.MinValue;
+                            account.LargeAccount2.Add((float)result);
+                        }
+
+                    }
+
+                    // Create an array of random longs
+                    account.LongValues = new long[rnd.Next(20, 500)];
+                    for (int i = 0; i < account.LongValues.Length; i++)
+                    {
+                        account.LongValues[i] = rnd.Next(1, 18000000);
+                    }
+
                     // Store the Account in the List
                     list.Add(account);
 
-                    if (counter > msg.NumAccountsToGenerate + 1) break;
+                    if (counter > msg.NumAccountsToGenerate + 1)
+                        break;
                     counter++;
                 }
 

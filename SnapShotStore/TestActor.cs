@@ -34,7 +34,7 @@ namespace SnapShotStore
 
     class TestActor : ReceivePersistentActor
     {
-        private ILoggingAdapter _log;
+        private readonly ILoggingAdapter _log = Logging.GetLogger(Context);
 
         // The actor state to be persisted
         private Account Acc;
@@ -49,8 +49,6 @@ namespace SnapShotStore
 
         public TestActor(Account acc)
         {
-            _log = Context.GetLogger();
-
             // Store the actor state 
             Acc = acc;
             AccountId = acc.AccountID;
@@ -60,8 +58,6 @@ namespace SnapShotStore
 
         public TestActor(string accountId)
         {
-            _log = Context.GetLogger();
-
             AccountId = accountId;
             Setup();
         }
