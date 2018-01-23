@@ -505,20 +505,13 @@ namespace SnapShotStore
 
                 // Convert the PersistenceId to bytes and store them in the buffer, leaving space at the beginning to store its length
                 byte[] temp = Encoding.ASCII.GetBytes(sme.Metadata.PersistenceId);
-                //            int length = Encoding.ASCII.GetBytes(
-                //                sme.Metadata.PersistenceId, 0, .Length, buffer, SIZE_OF_PERSISTENCE_ID_LENGTH);
-
                 int length = temp.Length;
                 var buffer = new byte[length + SIZE_OF_PERSISTENCE_ID_LENGTH + SIZE_OF_SEQ_NUM + SIZE_OF_DATE_TIME +
                         SIZE_OF_SNAPSHOT_LENGTH + SIZE_OF_SNAPSHOT_POSITION + SIZE_OF_DELETED];
 
                 // Convert and store the length of the persistence ID
-                buffer[0] = (byte)(length >> 24);
-                buffer[1] = (byte)(length >> 16);
-                buffer[2] = (byte)(length >> 8);
-                buffer[3] = (byte)(length);
-
-
+                var bits = BitConverter.GetBytes(length);
+                bits.CopyTo(buffer, 0);
 
                 // This is slower than the original code that placed the bytes from the persistence Id straight into the buffer
                 // Copy the bytes into the main buffer
@@ -526,47 +519,26 @@ namespace SnapShotStore
 
                 // Convert the sequence number of the snapshot
                 int offset = length + SIZE_OF_PERSISTENCE_ID_LENGTH;
-                buffer[offset] = (byte)((long)(sme.Metadata.SequenceNr) >> 56);
-                buffer[offset + 1] = (byte)((long)(sme.Metadata.SequenceNr) >> 48);
-                buffer[offset + 2] = (byte)((long)(sme.Metadata.SequenceNr) >> 40);
-                buffer[offset + 3] = (byte)((long)(sme.Metadata.SequenceNr) >> 32);
-                buffer[offset + 4] = (byte)((long)(sme.Metadata.SequenceNr) >> 24);
-                buffer[offset + 5] = (byte)((long)(sme.Metadata.SequenceNr) >> 16);
-                buffer[offset + 6] = (byte)((long)(sme.Metadata.SequenceNr) >> 8);
-                buffer[offset + 7] = (byte)((long)(sme.Metadata.SequenceNr));
+                var bits1 = BitConverter.GetBytes(sme.Metadata.SequenceNr);
+                bits1.CopyTo(buffer, offset);
 
                 // Convert and store the timestamp of the snapshot
                 long datetime = sme.Metadata.Timestamp.ToBinary();
                 offset += SIZE_OF_SEQ_NUM;
-                buffer[offset] = (byte)((long)(datetime) >> 56);
-                buffer[offset + 1] = (byte)((long)(datetime) >> 48);
-                buffer[offset + 2] = (byte)((long)(datetime) >> 40);
-                buffer[offset + 3] = (byte)((long)(datetime) >> 32);
-                buffer[offset + 4] = (byte)((long)(datetime) >> 24);
-                buffer[offset + 5] = (byte)((long)(datetime) >> 16);
-                buffer[offset + 6] = (byte)((long)(datetime) >> 8);
-                buffer[offset + 7] = (byte)((long)(datetime));
+                var bits2 = BitConverter.GetBytes(datetime);
+                bits2.CopyTo(buffer, offset);
 
                 // Convert and store the position of the snapshot in the snapshot file
                 long position = sme.Position;
                 offset += SIZE_OF_DATE_TIME;
-                buffer[offset] = (byte)((long)(position) >> 56);
-                buffer[offset + 1] = (byte)((long)(position) >> 48);
-                buffer[offset + 2] = (byte)((long)(position) >> 40);
-                buffer[offset + 3] = (byte)((long)(position) >> 32);
-                buffer[offset + 4] = (byte)((long)(position) >> 24);
-                buffer[offset + 5] = (byte)((long)(position) >> 16);
-                buffer[offset + 6] = (byte)((long)(position) >> 8);
-                buffer[offset + 7] = (byte)((long)(position));
-
+                var bits3 = BitConverter.GetBytes(position);
+                bits3.CopyTo(buffer, offset);
 
                 // Convert and store the length of the snapshot
                 int snapLength = sme.Length;
                 offset += SIZE_OF_SNAPSHOT_POSITION;
-                buffer[offset] = (byte)((int)(snapLength) >> 24);
-                buffer[offset + 1] = (byte)((int)(snapLength) >> 16);
-                buffer[offset + 2] = (byte)((int)(snapLength) >> 8);
-                buffer[offset + 3] = (byte)((int)(snapLength));
+                var bits4 = BitConverter.GetBytes(snapLength);
+                bits4.CopyTo(buffer, offset);
 
                 // Convert and store the deleted marker that denotes if this snapshot is deleted
                 offset += SIZE_OF_SNAPSHOT_LENGTH;
@@ -574,35 +546,14 @@ namespace SnapShotStore
 
                 // Write to stream
                 stream.Write(buffer, 0, offset + 1);
-
-                //            _log.Debug("WRITE-SME\tPersistenceId={0}\tsequenceNum={1}\tdateTime={2}\tposition={3}\tsnapshotLength={4}\tdeleted={5}",
-                //                sme.Metadata.PersistenceId, sme.Metadata.SequenceNr, datetime, sme.Position, sme.Length, sme.Deleted);
-                _log.Debug("WRITE-SME ENTRY\t PersistenceId={0}\t pos={1}\t length={2}", sme.Metadata.PersistenceId, pos, offset + 1);
-
-                // TODO Debug code remove
-                // Read the length back and see if they are the same
-                int debugLength = (buffer[0] << 24 | (buffer[1] & 0xFF) << 16 | (buffer[2] & 0xFF) << 8 | (buffer[3] & 0xFF));
-                if (length != debugLength)
-                {
-                    // Something is terribly wrong !!
-                    _log.Error("Converted and deconverted lengths do not match. Original length = {0}, Converted length = {1}",
-                        length, debugLength);
-                }
-                if (offset + 1 > 1000)
-                {
-                    // Something is terribly wrong !!
-                    _log.Error("Writing SME entry larger than expected. Length = {0}, PersistenceId = {1}",
-                        offset + 1, sme.Metadata.PersistenceId);
-                }
-
-            } catch (Exception e)
+            }
+            catch (Exception e)
             {
-                _log.Error("Error writing SME, msg = {0}, location = {1}",
-                    e.Message, e.StackTrace);
+                _log.Error("Error writing SME, msg = {0}, location = {1}", e.Message, e.StackTrace);
+                throw e;
             }
 
         }
-
         /*
                 private void WriteSME_SAVED(FileStream stream, SnapshotMapEntry sme)
                 {
@@ -675,7 +626,50 @@ namespace SnapShotStore
                 }
         */
 
-        // TODO change back to private after the test
+        private SnapshotMapEntry ReadSME(FileStream stream)
+        {
+            _readSME++;
+            try
+            {
+                var pos = stream.Position;
+
+                // Get the Snapshot Map Entry attributes from the file
+                var lengthBuffer = new byte[SIZE_OF_PERSISTENCE_ID_LENGTH];
+
+                // Determine the size of the PersistenceId
+                stream.Read(lengthBuffer, 0, lengthBuffer.Length);
+                int length = BitConverter.ToInt32(lengthBuffer, 0);
+                var buffer = new byte[length + SIZE_OF_SEQ_NUM + SIZE_OF_DATE_TIME + SIZE_OF_SNAPSHOT_LENGTH + SIZE_OF_SNAPSHOT_POSITION + SIZE_OF_DELETED];
+
+                // Get the PersistenceID string from the file
+                var bytesRead = stream.Read(buffer, 0, buffer.Length);
+                var persistenceId = Encoding.ASCII.GetString(buffer, 0, length);
+
+                int offset = length;
+                long sequenceNum = BitConverter.ToInt64(buffer, offset);
+
+                offset += SIZE_OF_SEQ_NUM;
+                long datetime = BitConverter.ToInt64(buffer, offset);
+
+                offset += SIZE_OF_DATE_TIME;
+                long position = BitConverter.ToInt64(buffer, offset);
+
+                offset += SIZE_OF_SNAPSHOT_POSITION;
+                int snapshotLength = BitConverter.ToInt32(buffer, offset);
+
+                offset += SIZE_OF_SNAPSHOT_LENGTH;
+                bool deleted = BitConverter.ToBoolean(buffer, offset);
+
+                return new SnapshotMapEntry(new SnapshotMetadata(persistenceId, sequenceNum, DateTime.FromBinary(datetime)), position, snapshotLength, deleted);
+            }
+            catch (Exception e)
+            {
+                _log.Error("Error reading SME, msg = {0}, location = {1}", e.Message, e.StackTrace);
+            }
+
+            return null;
+        }
+/*
         private SnapshotMapEntry ReadSME(FileStream stream)
         {
             _readSME++;
@@ -768,7 +762,7 @@ namespace SnapShotStore
 
             return null;
         }
-
+*/
     }
 }
 

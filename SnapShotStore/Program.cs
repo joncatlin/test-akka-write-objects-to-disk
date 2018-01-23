@@ -73,7 +73,7 @@ namespace SnapShotStore
                     stdout-loglevel = DEBUG
                     loglevel = ERROR
                     log-config-on-start = on        
-#                    loggers = [""Akka.Logger.NLog.NLogLogger, Akka.Logger.NLog""]
+                    loggers = [""Akka.Logger.NLog.NLogLogger, Akka.Logger.NLog""]
                 }
 
                 actor
