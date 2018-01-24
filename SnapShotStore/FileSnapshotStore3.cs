@@ -102,12 +102,11 @@ namespace SnapShotStore
         private const int MAX_SNAPHOT_SIZE = 40000;     // Maximum size for an item to be saved as a snapshot
 
         private int _maxSnapshotSize = MAX_SNAPHOT_SIZE;
-        private const int NUM_READ_THREADS = 4;
+        private const int NUM_READ_THREADS = 1;
 
         // Create the map to the items held in the snapshot store
-        private const int INITIAL_SIZE = 10000;
-        private const int ONE_THREAD = 1;
-        private ConcurrentDictionary<string, SnapshotMapEntry> SnapshotMap = new ConcurrentDictionary<string, SnapshotMapEntry>(ONE_THREAD, INITIAL_SIZE);
+        private const int INITIAL_SIZE = 1000000;
+        private ConcurrentDictionary<string, SnapshotMapEntry> SnapshotMap = new ConcurrentDictionary<string, SnapshotMapEntry>(NUM_READ_THREADS+1, INITIAL_SIZE);
 
         // Structure to hold the read streams, one per read thread
         private FileStream[] _readStreams = new FileStream[NUM_READ_THREADS];
@@ -151,7 +150,7 @@ namespace SnapShotStore
 
                 // Open the file so the file pointer can be moved in case an error is detected. 
                 //Position to end of file because normally that is where items will be added
-                _writeSMEStream = File.Open(filenameSME, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+                _writeSMEStream = File.Open(filenameSME, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite);
                 _writeSMEStream.Seek(_writeSMEStream.Length, SeekOrigin.Begin);
 
                 _readSMEStream = File.Open(filenameSME, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);

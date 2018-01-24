@@ -290,6 +290,46 @@ namespace TestSMEAlgorithm
             return null;
         }
 
+
+
+
+
+
+
+
+
+
+
+        private void StringToByteArray(string from)
+        {
+            unsafe
+            {
+                fixed (void* ptr = from)
+                {
+                    //                System.Runtime.InteropServices.Marshal.Copy(new IntPtr(ptr), tempByte, 0, len);
+                }
+
+            }
+
+        }
+
+
+
+
+
+
+
+
+
+
+/*
+fixed (byte* bptr = tempByte)
+    {
+        char* cptr = (char*)(bptr + offset);
+        tempText = new string(cptr, 0, len / 2);
     }
+*/
+
+}
 
 }

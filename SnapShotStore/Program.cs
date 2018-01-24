@@ -37,7 +37,7 @@ namespace SnapShotStore
             }
 
             // TODO - Remove these items
-            NUM_ACTORS = 5000;
+            NUM_ACTORS = 33101;
             FILENAME = @"c:\temp\datagen.bin";
 
             // Get the configuration of the akka system
@@ -122,7 +122,7 @@ namespace SnapShotStore
                 akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
                 akka.persistence.journal.plugin = ""akka.persistence.journal.in-mem""
 
-                akka.persistence.max-concurrent-recoveries = 500
+                akka.persistence.max-concurrent-recoveries = 50
 
                 # Dispatcher for the TestActors to see if this changes the performance
                 test-actor-dispatcher {
