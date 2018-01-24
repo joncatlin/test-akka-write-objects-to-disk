@@ -149,7 +149,11 @@ namespace SnapShotStore
                     _readStreams[i] = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 }
 
-                _writeSMEStream = File.Open(filenameSME, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+                // Open the file so the file pointer can be moved in case an error is detected. 
+                //Position to end of file because normally that is where items will be added
+                _writeSMEStream = File.Open(filenameSME, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+                _writeSMEStream.Seek(_writeSMEStream.Length, SeekOrigin.Begin);
+
                 _readSMEStream = File.Open(filenameSME, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             }
             catch (Exception e)
@@ -428,7 +432,7 @@ namespace SnapShotStore
         private void InitializeSnaphotMap()
         {
             _log.Info("InitializeSnapshotMap() - STARTED reading the snapshot file to build map");
-
+            int mapReads = 0;
 
             // Ensure that the position in the stream is at the start of the file
             _readSMEStream.Seek(0, SeekOrigin.Begin);
@@ -445,33 +449,40 @@ namespace SnapShotStore
                     // TODO rather than override the existing sme, create a sorted list to save them in.
                     // This will aid in the snapshot selection criteria
                     var sme = ReadSME(_readSMEStream);
+                    mapReads++;
 
                     // Save the SME in the map
-                    if (!SnapshotMap.TryGetValue(sme.Metadata.PersistenceId, out SnapshotMapEntry currentValue))
+                    if (sme != null)
                     {
-                        // Does not exist so add
-                        if (!SnapshotMap.TryAdd(sme.Metadata.PersistenceId, sme))
+                        if (!SnapshotMap.TryGetValue(sme.Metadata.PersistenceId, out SnapshotMapEntry currentValue))
                         {
-                            _log.Error("Failed to add sme to map. PersistenceId={0}", sme.Metadata.PersistenceId);
+                            // Does not exist so add
+                            if (!SnapshotMap.TryAdd(sme.Metadata.PersistenceId, sme))
+                            {
+                                _log.Error("Failed to add sme to map. PersistenceId={0}", sme.Metadata.PersistenceId);
+                            }
                         }
-                    }
-                    else
+                        else
+                        {
+                            // Exists so update
+                            if (!SnapshotMap.TryUpdate(sme.Metadata.PersistenceId, sme, currentValue))
+                            {
+                                _log.Error("Failed to update sme in map. PersistenceId={0}", sme.Metadata.PersistenceId);
+                            }
+                        }
+                    } else
                     {
-                        // Exists so update
-                        if (!SnapshotMap.TryUpdate(sme.Metadata.PersistenceId, sme ,currentValue))
-                        {
-                            _log.Error("Failed to update sme in map. PersistenceId={0}", sme.Metadata.PersistenceId);
-                        }
+                        // No point in continuing if there was a problem reading a snapshot map entry form the file
+                        break;
                     }
                 }
-                catch (SerializationException e)
+                catch (Exception e)
                 {
-                    _log.Error("Failed to deserialize. Reason: {0}\n Position: {1}", e.Message, e.StackTrace);
-                    throw;
+                    _log.Error("Exception when reading SME entries from file. Only those entries recovered will be used. Potential loss of state!\nMessage={0}. \nLocation={1}", e.Message, e.StackTrace);
                 }
             }
 
-            _log.Info("InitializeSnapshotMap() - FINISHED reading the snapshot file to build map");
+            _log.Info("InitializeSnapshotMap() - FINISHED reading the snapshot file to build map. Total map entries read = {0}", mapReads + 1);
 
         }
 
@@ -629,9 +640,11 @@ namespace SnapShotStore
         private SnapshotMapEntry ReadSME(FileStream stream)
         {
             _readSME++;
+            long pos = 0;
+
             try
             {
-                var pos = stream.Position;
+                pos = stream.Position;
 
                 // Get the Snapshot Map Entry attributes from the file
                 var lengthBuffer = new byte[SIZE_OF_PERSISTENCE_ID_LENGTH];
@@ -664,7 +677,8 @@ namespace SnapShotStore
             }
             catch (Exception e)
             {
-                _log.Error("Error reading SME, msg = {0}, location = {1}", e.Message, e.StackTrace);
+                _log.Info("Error when reading SME entries from file. Assuming file was partly written or corrupt so positioning to a known good location and continuing from there. \nMessage={0}. \nLocation={1}", e.Message, e.StackTrace);
+                _writeSMEStream.Seek(pos, SeekOrigin.Begin);
             }
 
             return null;

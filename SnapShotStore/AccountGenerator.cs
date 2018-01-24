@@ -167,62 +167,6 @@ namespace SnapShotStore
         }
 
 
-        private void CreateActors()
-        {
-            Console.WriteLine("Hit return to display actor state");
-            Console.ReadLine();
-/*
-            irefs[0].Tell(new DisplayState());
-            irefs[1].Tell(new DisplayState());
-            irefs[NUM_ACTORS - 2].Tell(new DisplayState());
-            irefs[NUM_ACTORS - 1].Tell(new DisplayState());
-
-            // Start the timer to measure how long it takes to complete the test
-            Console.WriteLine("Starting the test to persist actor state");
-            Stopwatch stopWatch = new Stopwatch();
-            stopWatch.Start();
-
-
-            // Send three msgs to see if the metadata seq number changes
-            for (int i = 0; i < NUM_ACTORS; i++)
-            {
-                irefs[i].Tell(new SomeMessage());
-            }
-
-            // Get the elapsed time as a TimeSpan value.
-            stopWatch.Stop();
-            TimeSpan ts = stopWatch.Elapsed;
-
-            // Format and display the TimeSpan value.
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}",
-                ts.Hours, ts.Minutes, ts.Seconds,
-                ts.Milliseconds / 10);
-            Console.WriteLine("RunTime for telling the actors" + elapsedTime);
-
-            Console.WriteLine("Hit return to cause some actors to print out some of their state. This is to check that their state has been saved and restored correctly");
-            Console.ReadLine();
-
-            irefs[0].Tell(new DisplayState());
-            irefs[1].Tell(new DisplayState());
-            irefs[NUM_ACTORS - 2].Tell(new DisplayState());
-            irefs[NUM_ACTORS - 1].Tell(new DisplayState());
-
-
-
-            Console.WriteLine("Hit return to terminate AKKA");
-            Console.ReadLine();
-
-            // Wait until actor system terminated
-            actorSystem.Terminate();
-
-            Console.WriteLine("Hit return to terminate program");
-            Console.ReadLine();
-*/
-        }
-
-
-
-
         private List<Account> CreateAccounts(GenerateAccounts msg)
         {
             _log.Debug("AccountGenerator - Processing GenerateAccounts");
@@ -240,7 +184,7 @@ namespace SnapShotStore
                 System.IO.StreamReader file =
                     new System.IO.StreamReader(msg.Filename);
 
-                _log.Debug("AccountGenerator - Start Account Generation");
+                _log.Info("AccountGenerator - Start Account Generation");
 
                 while ((line = file.ReadLine()) != null)
                 {
@@ -326,7 +270,7 @@ namespace SnapShotStore
                     counter++;
                 }
 
-                _log.Debug("AccountGenerator - Finish Account Generation");
+                _log.Info("AccountGenerator - Finish Account Generation");
 
                 file.Close();
 

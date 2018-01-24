@@ -37,7 +37,7 @@ namespace SnapShotStore
             }
 
             // TODO - Remove these items
-            NUM_ACTORS = 50000;
+            NUM_ACTORS = 5000;
             FILENAME = @"c:\temp\datagen.bin";
 
             // Get the configuration of the akka system
@@ -71,9 +71,9 @@ namespace SnapShotStore
             return @"
                 akka {  
                     stdout-loglevel = DEBUG
-                    loglevel = ERROR
+                    loglevel = INFO
                     log-config-on-start = on        
-                    loggers = [""Akka.Logger.NLog.NLogLogger, Akka.Logger.NLog""]
+#                    loggers = [""Akka.Logger.NLog.NLogLogger, Akka.Logger.NLog""]
                 }
 
                 actor

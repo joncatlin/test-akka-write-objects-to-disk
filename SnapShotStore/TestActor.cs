@@ -64,7 +64,7 @@ namespace SnapShotStore
 
         private void Setup()
         {
-
+//            _log.Info("TestActor - setup - PersistenceId={0}", PersistenceId);
             // Display the configuration for the dispatcher
             // Get the configuration
 //            Console.WriteLine("Name={0}", Context.Self.Path);
@@ -114,8 +114,15 @@ namespace SnapShotStore
         private void RecoverSnapshot(SnapshotOffer offer)
         {
             Acc = (Account)offer.Snapshot;
-            AccountId = Acc.AccountID;
-            _log.Debug("Finished Processing RecoverSnapshot, ID={0}", Acc.AccountID);
+            if (Acc == null)
+            {
+                _log.Error("ERROR in RecoverSnapshot. PersistenceId = {0}", AccountId);
+            }
+            else
+            {
+                AccountId = Acc.AccountID;
+                _log.Debug("Finished Processing RecoverSnapshot, ID={0}", Acc.AccountID);
+            }
         }
 
 
