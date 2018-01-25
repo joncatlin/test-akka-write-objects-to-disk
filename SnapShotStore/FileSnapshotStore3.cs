@@ -192,7 +192,6 @@ namespace SnapShotStore
         /// Deletes a snapshot from the store
         /// </summary>
         /// <param name="metadata">TBD</param>
-        [MethodImpl(MethodImplOptions.Synchronized)]
         protected virtual void Delete(SnapshotMetadata metadata)
         {
             _log.Debug("Delete() - metadata: {0}, metadata.Timestamp {1:yyyy-MMM-dd-HH-mm-ss ffff}", metadata, metadata.Timestamp);
@@ -206,16 +205,23 @@ namespace SnapShotStore
         /// </summary>
         protected override Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
-            _loadasync++;
-            if (_loadasync % 10000 == 0) _log.Info("LoadAsync() - count of calls={0}", _loadasync);
+            try
+            {
+                _loadasync++;
+                if (_loadasync % 10000 == 0) _log.Info("LoadAsync() - count of calls={0}", _loadasync);
 
-            // Create an empty SnapshotMetadata
-            SnapshotMetadata metadata = new SnapshotMetadata(persistenceId, -1);
+                // Create an empty SnapshotMetadata
+                SnapshotMetadata metadata = new SnapshotMetadata(persistenceId, -1);
 
-            // Pick a read stream to use
-            int streamId = getReadStream();
+                // Pick a read stream to use
+                int streamId = getReadStream();
 
-            return RunWithStreamDispatcher(() => Load(streamId, metadata));
+                return RunWithStreamDispatcher(() => Load(streamId, metadata));
+            } catch (Exception e)
+            {
+                _log.Error("ERROR in LoadAsync(). Message={0}\nStacktrace={1}", e.Message, e.StackTrace);
+                return null;
+            }
         }
 
 
@@ -242,15 +248,24 @@ namespace SnapShotStore
         /// </summary>
         protected override Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
-            _saveasync++;
-            if (_saveasync % 10000 == 0) _log.Info("SaveAsync() - count of calls={0}", _saveasync);
-
-            return RunWithStreamDispatcher(() =>
+            try
             {
-                Save(metadata, snapshot);
-                return new object();
-            });
+                _saveasync++;
+                if (_saveasync % 10000 == 0) _log.Info("SaveAsync() - count of calls={0}", _saveasync);
+
+                return RunWithStreamDispatcher(() =>
+                {
+                    Save(metadata, snapshot);
+                    return new object();
+                });
+            }
+            catch (Exception e)
+            {
+                _log.Error("ERROR in LoadAsync(). Message={0}\nStacktrace={1}", e.Message, e.StackTrace);
+                return null;
+            }
         }
+
 
 
         /// <summary>
@@ -258,7 +273,7 @@ namespace SnapShotStore
         /// </summary>
         /// <param name="metadata">TBD</param>
         /// <param name="snapshot">TBD</param>
-//        [MethodImpl(MethodImplOptions.Synchronized)]
+        //        [MethodImpl(MethodImplOptions.Synchronized)]
         protected virtual void Save(SnapshotMetadata metadata, object snapshot)
         {
             _save++;
@@ -302,6 +317,11 @@ namespace SnapShotStore
                 catch (SerializationException e)
                 {
                     _log.Error("Failed to serialize. Reason: {0}\n{1}", e.Message, e.StackTrace);
+                    throw e;
+                }
+                catch (Exception e)
+                {
+                    _log.Error("ERROR in Save. Message={0}\n StackTrace={1}", e.Message, e.StackTrace);
                     throw e;
                 }
             }
@@ -418,14 +438,21 @@ namespace SnapShotStore
 
         protected override void PreStart()
         {
-            _log.Debug("PreStart()");
+            try
+            {
+                _log.Debug("PreStart()");
 
-            // Initialize the Snapshot Map
-            InitializeSnaphotMap();
+                // Initialize the Snapshot Map
+                InitializeSnaphotMap();
 
-            // Start the timer for flushing the files
-            FlushTimer = new Timer(FlushFiles, null, 0, 5000);
-
+                // Start the timer for flushing the files
+                FlushTimer = new Timer(FlushFiles, null, 0, 5000);
+            }
+            catch (Exception e)
+            {
+                _log.Error("Serious error in PreStart(). Message={0}\n StackTrace={1}", e.Message, e.StackTrace);
+                throw e;
+            }
         }
 
         private void InitializeSnaphotMap()
@@ -488,23 +515,28 @@ namespace SnapShotStore
 
         protected override void PostStop()
         {
-
-            _log.Debug("PostStop() - flushing and closing the file");
-
-            // Stop the scheduled flush process
-            FlushTimer.Dispose();
-
-            // Close the file and ensure that everything is flushed correctly
-            _writeStream.Flush(true);
-            _writeSMEStream.Flush(true);
-            _writeStream.Close();
-            _writeSMEStream.Close();
-
-            foreach(FileStream stream in _readStreams)
+            try
             {
-                stream.Close();
-            }
+                _log.Debug("PostStop() - flushing and closing the file");
 
+                // Stop the scheduled flush process
+                FlushTimer.Dispose();
+
+                // Close the file and ensure that everything is flushed correctly
+                _writeStream.Flush(true);
+                _writeSMEStream.Flush(true);
+                _writeStream.Close();
+                _writeSMEStream.Close();
+
+                foreach (FileStream stream in _readStreams)
+                {
+                    stream.Close();
+                }
+            }
+            catch (Exception e)
+            {
+                _log.Error("Serious error in PostStop().\nMessage={0}. \nLocation={1}", e.Message, e.StackTrace);
+            }
         }
 
         private void WriteSME(FileStream stream, SnapshotMapEntry sme)

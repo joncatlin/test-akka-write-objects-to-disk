@@ -299,7 +299,7 @@ namespace TestSMEAlgorithm
 
 
 
-
+/*
         private void StringToByteArray(string from)
         {
             unsafe
