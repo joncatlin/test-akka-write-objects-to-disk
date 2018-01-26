@@ -89,59 +89,59 @@ namespace SnapShotStore
                 }
 
                 # Dispatcher for the Snapshot file store
-                snapshot-dispatcher {
-                  type = Dispatcher
-                  throughput = 10000
-                }
+#                snapshot-dispatcher {
+#                  type = Dispatcher
+#                  throughput = 10000
+#                }
 
                 # Persistence Plugin for SNAPSHOT
                 akka.persistence {
-                    journal {
-                        in-mem {
-                            class = ""Akka.Persistence.Journal.MemoryJournal, Akka.Persistence""
+#                    journal {
+#                        in-mem {
+#                            class = ""Akka.Persistence.Journal.MemoryJournal, Akka.Persistence""
                             # Dispatcher for the plugin actor.
-                            plugin - dispatcher = ""akka.actor.default-dispatcher""
-                        }
-                    }
+#                            plugin - dispatcher = ""akka.actor.default-dispatcher""
+#                        }
+#                    }
 
                 snapshot-store {
 		                jonfile {
 			                # qualified type name of the File persistence snapshot actor
             			    class = ""SnapShotStore.FileSnapshotStore3, SnapShotStore""
                             max-load-attempts=19
-                            dir = ""/temp""
-//                            dir = ""C:\\temp""
+#                            dir = ""/temp""
+                            dir = ""C:\\temp""
 
                             # dispatcher used to drive snapshot storage actor
-                            #plugin-dispatcher = ""akka.actor.default-dispatcher""
-                            plugin-dispatcher = ""snapshot-dispatcher""
+                            plugin-dispatcher = ""akka.actor.default-dispatcher""
+#                            plugin-dispatcher = ""snapshot-dispatcher""
                         }
                     }
                 }
 
                 akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
-                akka.persistence.journal.plugin = ""akka.persistence.journal.in-mem""
+#                akka.persistence.journal.plugin = ""akka.persistence.journal.in-mem""
 
                 akka.persistence.max-concurrent-recoveries = 50
 
                 # Dispatcher for the TestActors to see if this changes the performance
-                test-actor-dispatcher {
-                    type = ForkJoinDispatcher
-                    throughput = 10
-                    dedicated-thread-pool {
-                        thread-count = 2
-                        deadlock-timeout = 60s
-                        threadtype = background
-                    }
+ #               test-actor-dispatcher {
+ #                   type = ForkJoinDispatcher
+ #                   throughput = 10
+ #                   dedicated-thread-pool {
+ #                       thread-count = 2
+ #                       deadlock-timeout = 60s
+ #                       threadtype = background
+ #                   }
                 }
 
                 # Deployment configuration
                 akka.actor.deployment {
 
                     # Configuration for test-actor deployment
-                    ""/AccountGenerator/*"" {
-                        dispatcher = test-actor-dispatcher
-                    }
+  #                  ""/AccountGenerator/*"" {
+  #                      dispatcher = test-actor-dispatcher
+  #                  }
                 }
 
 
