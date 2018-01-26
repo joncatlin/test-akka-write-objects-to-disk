@@ -102,7 +102,7 @@ namespace SnapShotStore
         private const int MAX_SNAPHOT_SIZE = 40000;     // Maximum size for an item to be saved as a snapshot
 
         private int _maxSnapshotSize = MAX_SNAPHOT_SIZE;
-        private const int NUM_READ_THREADS = 1;
+        private const int NUM_READ_THREADS = 3;
 
         // Create the map to the items held in the snapshot store
         private const int INITIAL_SIZE = 1000000;

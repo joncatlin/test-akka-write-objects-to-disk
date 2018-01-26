@@ -94,7 +94,7 @@ namespace SnapShotStore
 
         private void SnapshotFailure(SaveSnapshotFailure cmd)
         {
-            _log.Debug("Processing SnapShotFailure command, ID={0}, cause={1} \nStacktrace={2}", Acc.AccountID, cmd.Cause.Message, cmd.Cause.StackTrace);
+            _log.Error("Processing SnapShotFailure command, ID={0}, cause={1} \nStacktrace={2}", Acc.AccountID, cmd.Cause.Message, cmd.Cause.StackTrace);
         }
 
         private void Process(SomeMessage msg)
@@ -107,7 +107,7 @@ namespace SnapShotStore
 
         private void Display()
         {
-            _log.Debug("Processing CompareState in testactor, ID={0}, the new desc is: {1}", Acc.AccountID, Acc.Desc1);
+            _log.Info("Processing Display in testactor, ID={0}, the new desc is: {1}", Acc.AccountID, Acc.Desc1);
             Console.WriteLine("PersistenceId={0}, desc={1}", Acc.AccountID, Acc.Desc1);
         }
 

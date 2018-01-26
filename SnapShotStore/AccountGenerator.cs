@@ -195,7 +195,7 @@ namespace SnapShotStore
                     }
 
                     string[] tokens = line.Split(',');
-                    Account account = new Account(tokens[0] + "-" + counter);
+                    Account account = new Account(tokens[0] + "-" + (counter - 1));
 
                     account.CompanyIDCustomerID = tokens[1];
                     account.AccountTypeID = tokens[2];

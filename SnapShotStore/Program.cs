@@ -37,7 +37,7 @@ namespace SnapShotStore
             }
 
             // TODO - Remove these items
-            NUM_ACTORS = 33101;
+            NUM_ACTORS = 60060;
             FILENAME = @"c:\temp\datagen.bin";
 
             // Get the configuration of the akka system
@@ -57,6 +57,25 @@ namespace SnapShotStore
             Console.ReadLine();
 
             agref.Tell(new SendMsgs());
+
+            Console.WriteLine("Enter an actor id to probe or E to stop");
+            bool finished = false;
+            string actorPath = "/user/AccountGenerator/testActor-";
+            while (finished != true)
+            {
+                string line = Console.ReadLine();
+                if (line.Equals("E"))
+                {
+                    finished = true;
+                }
+                else
+                {
+                    // Get the actor reference and send it a display message
+                    Console.WriteLine("Sending a display message to " + actorPath + line);
+                    actorSystem.ActorSelection(actorPath + line).Tell(new DisplayState());
+                }
+
+            }
 
             Console.WriteLine("Press return to terminate the system");
             Console.ReadLine();
@@ -115,6 +134,7 @@ namespace SnapShotStore
                             # dispatcher used to drive snapshot storage actor
                             plugin-dispatcher = ""akka.actor.default-dispatcher""
 #                            plugin-dispatcher = ""snapshot-dispatcher""
+
                         }
                     }
                 }
@@ -122,7 +142,7 @@ namespace SnapShotStore
                 akka.persistence.snapshot-store.plugin = ""akka.persistence.snapshot-store.jonfile""
 #                akka.persistence.journal.plugin = ""akka.persistence.journal.in-mem""
 
-                akka.persistence.max-concurrent-recoveries = 50
+                akka.persistence.max-concurrent-recoveries = 10
 
                 # Dispatcher for the TestActors to see if this changes the performance
  #               test-actor-dispatcher {
@@ -144,6 +164,9 @@ namespace SnapShotStore
   #                  }
                 }
 
+                # Timeout on recovery of snapshot & journal entries
+                journal-plugin-fallback.recovery-event-timeout = 90s
+                akka.persistence.snapshot-store.recovery-event-timeout = 60s
 
             ";
         }
