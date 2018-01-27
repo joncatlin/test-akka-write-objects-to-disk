@@ -145,29 +145,27 @@ namespace SnapShotStore
                 akka.persistence.max-concurrent-recoveries = 10
 
                 # Dispatcher for the TestActors to see if this changes the performance
- #               test-actor-dispatcher {
- #                   type = ForkJoinDispatcher
- #                   throughput = 10
- #                   dedicated-thread-pool {
- #                       thread-count = 2
- #                       deadlock-timeout = 60s
- #                       threadtype = background
- #                   }
+                test-actor-dispatcher {
+                    type = ForkJoinDispatcher
+                    throughput = 10
+                    dedicated-thread-pool {
+                        thread-count = 2
+                        deadlock-timeout = 60s
+                        threadtype = background
+                    }
                 }
 
                 # Deployment configuration
                 akka.actor.deployment {
 
                     # Configuration for test-actor deployment
-  #                  ""/AccountGenerator/*"" {
-  #                      dispatcher = test-actor-dispatcher
-  #                  }
+                    ""/AccountGenerator/*"" {
+                        dispatcher = test-actor-dispatcher
+                    }
                 }
 
                 # Timeout on recovery of snapshot & journal entries
-                journal-plugin-fallback.recovery-event-timeout = 90s
-                akka.persistence.snapshot-store.recovery-event-timeout = 60s
-
+                akka.persistence.journal-plugin-fallback.recovery-event-timeout = 33s
             ";
         }
 
